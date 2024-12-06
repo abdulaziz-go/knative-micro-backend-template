@@ -8,7 +8,7 @@ deploy-staging:
   stage: deploy
   extends: .deploy_template
   variables:
-    K8SCONFIGJSON: $UCODE_KNATIVE_KUBECONFIG
+    K8SCONFIGJSON: $UCODE_KUBECONFIG
   only:
     - master
 
