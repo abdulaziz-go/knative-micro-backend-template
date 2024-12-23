@@ -30,7 +30,7 @@ type (
 	}
 )
 
-// NewConfig returns app config.
+// NewConfig returns app pkg.
 func NewConfig() (*Config, error) {
 	cfg := &Config{}
 
