@@ -9,17 +9,17 @@ import (
 	"net/http"
 )
 
-func (h *Handler)CreateOrUpdateWarehouse(warehouses []map[string]interface{}) error {
+func (h *Handler) CreateOrUpdateWarehouse(warehouses []map[string]interface{}) error {
 
 	for _, wh := range warehouses {
 		fmt.Println(wh)
-		fmt.Println("creating...")
 		var (
 			createWHURL = pkg.SingleURL + "warehouse"
 			createWHReq = pkg.Request{
 				Data: map[string]interface{}{
-					"name": wh["WarehouseName"],
-					"code": wh["WarehouseCode"],
+					"name":           wh["WarehouseName"],
+					"code":           wh["WarehouseCode"],
+					"subdivision_id": "",
 				},
 			}
 		)
@@ -52,7 +52,6 @@ func GetWarehouse() ([]map[string]interface{}, error) {
 			return warehouses, err
 		}
 
-		// req.Header.Add("Content-Type", "application/json")
 		req.Header.Add("SessionId", pkg.SessionId)
 		req.Header.Add("Cookie", fmt.Sprintf("B1SESSION=%s; ROUTEID=.node4", pkg.SessionId))
 
@@ -81,7 +80,6 @@ func GetWarehouse() ([]map[string]interface{}, error) {
 
 		pagination = warehouse.OdataNextLink
 		fmt.Println("PAGE", pagination)
-		// fmt.Println("RESPONSE BODY: ", string(resByte))
 	}
 
 	return warehouses, nil

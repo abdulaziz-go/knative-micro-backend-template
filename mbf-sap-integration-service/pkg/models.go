@@ -1,7 +1,6 @@
 package pkg
 
 import (
-	"fmt"
 	"os"
 
 	cache "github.com/golanguzb70/redis-cache"
@@ -19,8 +18,6 @@ func NewParams(cfg *Config) *Params {
 	response := &Params{
 		Config: cfg,
 	}
-
-	fmt.Println("Config: ", cfg)
 
 	response.Log = zerolog.New(os.Stdout).With().Any("function", cfg.Name).Logger()
 

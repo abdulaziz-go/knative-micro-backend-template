@@ -30,22 +30,20 @@ func InitHandler(params *pkg.Params) *Handler {
 	}
 }
 
-func (h *Handler) JustTest() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		bytes, err := io.ReadAll(r.Body)
-		if err != nil {
-			h.Log.Err(err).Msg("Error on reading request body on Just Test ")
-			return
-		}
-
-		h.Log.Info().Msg(string(bytes))
-
-		response := map[string]interface{}{
-			"message": "Order created successfully",
-			"status":  200,
-		}
-		pkg.HandleResponse(w, response, http.StatusOK)
+func (h *Handler) JustTest(w http.ResponseWriter, r *http.Request) {
+	bytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		h.Log.Err(err).Msg("Error on reading request body on Just Test ")
+		return
 	}
+
+	h.Log.Info().Msg(string(bytes))
+
+	response := map[string]interface{}{
+		"message": "Order created successfully",
+		"status":  200,
+	}
+	pkg.HandleResponse(w, response, http.StatusOK)
 }
 
 func (h *Handler) Return() http.HandlerFunc {
@@ -68,7 +66,7 @@ func (h *Handler) Return() http.HandlerFunc {
 
 }
 
-func (h *Handler) Order(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) PostOrder(w http.ResponseWriter, r *http.Request) {
 	if err := pkg.LoginSAP(); err != nil {
 		h.Log.Err(err).Msg("Error on login SAP")
 		pkg.HandleResponse(w, err, http.StatusInternalServerError)
@@ -95,7 +93,7 @@ func (h *Handler) Order(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// While creating a new orders, we need to create it in SAP B1 to
-		if err := h.CreateOrder(orderRequest,); err != nil {
+		if err := h.CreateOrder(orderRequest); err != nil {
 			h.Log.Err(err).Msg("Error on creating order in Ucode")
 			pkg.HandleResponse(w, err, http.StatusInternalServerError)
 			return
@@ -146,7 +144,7 @@ func (h *Handler) StockCronJob() {
 		return
 	}
 
-	if err :=h.UpdateStock(); err != nil {
+	if err := h.UpdateStock(); err != nil {
 		log.Fatal("error while creating stock ", err)
 		return
 	}

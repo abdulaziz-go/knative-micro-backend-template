@@ -147,7 +147,7 @@ func getProductAndServices() ([]map[string]interface{}, error) {
 
 		pagination = productAndService.OdataNextLink
 
-		fmt.Println("RESPONSE BODY: ", string(resByte))
+		fmt.Println("PAGINATION: ", pagination)
 	}
 
 	return productAndServices, nil

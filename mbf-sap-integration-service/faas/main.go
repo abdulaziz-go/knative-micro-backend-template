@@ -16,6 +16,7 @@ import (
 	// cloudevents "github.com/cloudevents/sdk-go/v2"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/robfig/cron/v3"
 
 	function "function/internal"
@@ -72,53 +73,25 @@ func run() error {
 	}()
 
 	// Use a gorilla mux for handling all HTTP requests
-	router := chi.NewRouter()
-
+	r := chi.NewRouter()
+	r.Use(middleware.Logger) // log every requests
+	r.Use(middleware.Recoverer) // handle panics
+	
 	// Add handlers for readiness and liveness endpoints
-	router.HandleFunc("/health/{endpoint:readiness|liveness}", func(w http.ResponseWriter, r *http.Request) {
+	r.HandleFunc("/health/{endpoint:readiness|liveness}", func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 	})
 
-	/*
-		var httpHandler = toHttpHandler(handler, ctx)
-
-		if httpHandler == nil {
-			if *verbose {
-				fmt.Printf("Initializing CloudEvent function\n")
-			}
-			protocol, err := cloudevents.NewHTTP(
-				cloudevents.WithPort(*port),
-				cloudevents.WithPath("/"),
-			)
-			if err != nil {
-				fmt.Println("Error on creating protocol:", err)
-				return err
-			}
-			eventHandler, err := cloudevents.NewHTTPReceiveHandler(ctx, protocol, handler)
-			if err != nil {
-				fmt.Println("Error on creating proto1col:", err)
-
-				return err
-			}
-			router.Handle("/", eventHandler)
-		} else {
-			if *verbose {
-				fmt.Printf("Initializing HTTP function\n")
-			}
-			router.Handle("/", httpHandler)
-		}
-	*/
-	router.Group(func(r chi.Router) {
-
-		router.Post("/orders", handler.Order)
-		// router.Get("/orders", handler.Order())
+	r.Route("/api/v1", func(r chi.Router) {
+		r.Post("/orders", handler.PostOrder)
+		r.Get("/orders", handler.JustTest)
 		// router.Put("/orders", handler.Order())
 		// router.Delete("/orders", handler.Order())
 	})
 
 	httpServer := &http.Server{
 		Addr:           fmt.Sprintf(":%d", *port),
-		Handler:        router,
+		Handler:        r,
 		ReadTimeout:    1 * time.Minute,
 		WriteTimeout:   1 * time.Minute,
 		MaxHeaderBytes: 1 << 20,
@@ -126,9 +99,9 @@ func run() error {
 
 	listenAndServeErr := make(chan error, 1)
 	go func() {
-		if *verbose {
-			params.Log.Info().Msgf("Listening on :%d", *port)
-		}
+		// if *verbose {
+		params.Log.Info().Msgf("Listening on :%d", *port)
+		// }
 		err := httpServer.ListenAndServe()
 		cancel()
 		listenAndServeErr <- err
@@ -148,24 +121,6 @@ func run() error {
 	}
 	return err
 }
-
-// if the handler signature is compatible with http handler the function returns an instance of `http.Handler`,
-// otherwise nil is returned
-// func toHttpHandler(handler interface{}, ctx context.Context) http.Handler {
-
-// 	if f, ok := handler.(func(rw http.ResponseWriter, req *http.Request)); ok {
-// 		return recoverMiddleware(http.HandlerFunc(f))
-// 	}
-
-// 	if f, ok := handler.(func(ctx context.Context, rw http.ResponseWriter, req *http.Request)); ok {
-// 		ff := func(rw http.ResponseWriter, req *http.Request) {
-// 			f(ctx, rw, req)
-// 		}
-// 		return recoverMiddleware(http.HandlerFunc(ff))
-// 	}
-
-// 	return nil
-// }
 
 // parseEnv parses environment variables, populating the destination flags
 // prior to the builtin flag parsing.  Invalid values exit 1.
