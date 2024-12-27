@@ -102,11 +102,9 @@ func run() error {
 
 	listenAndServeErr := make(chan error, 1)
 	go func() {
-		// if *verbose {
 		params.Log.Info().Msgf("Listening on :%d", *port)
-		// }
 		err := srv.ListenAndServe()
-		// cancel()
+		cancel()
 		listenAndServeErr <- err
 	}()
 
