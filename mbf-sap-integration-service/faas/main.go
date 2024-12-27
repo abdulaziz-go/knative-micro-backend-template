@@ -14,7 +14,6 @@ import (
 	"syscall"
 	"time"
 
-
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/robfig/cron/v3"
@@ -63,14 +62,14 @@ func run() error {
 	cron.Start()
 	defer cron.Stop()
 
-	// ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigs
 		fmt.Println("CANCEL CAME HERE")
-		// cancel()
+		cancel()
 	}()
 
 	// Use a gorilla mux for handling all HTTP requests
@@ -93,14 +92,12 @@ func run() error {
 		r.Post("/conversion", nil)
 	})
 
-
 	srv := &http.Server{
 		Addr:           fmt.Sprintf(":%d", *port),
 		Handler:        r,
 		ReadTimeout:    1 * time.Minute,
 		WriteTimeout:   1 * time.Minute,
 		MaxHeaderBytes: 1 << 20,
-		
 	}
 
 	listenAndServeErr := make(chan error, 1)
@@ -113,7 +110,7 @@ func run() error {
 		listenAndServeErr <- err
 	}()
 
-	// <-ctx.Done()
+	<-ctx.Done()
 	shutdownCtx, shutdownCancelFn := context.WithTimeout(context.Background(), time.Second*5)
 	defer shutdownCancelFn()
 
