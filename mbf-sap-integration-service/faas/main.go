@@ -63,13 +63,14 @@ func run() error {
 	cron.Start()
 	defer cron.Stop()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	// ctx, cancel := context.WithCancel(context.Background())
 
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigs
-		cancel()
+		fmt.Println("CANCEL CAME HERE")
+		// cancel()
 	}()
 
 	// Use a gorilla mux for handling all HTTP requests
@@ -108,11 +109,11 @@ func run() error {
 		params.Log.Info().Msgf("Listening on :%d", *port)
 		// }
 		err := srv.ListenAndServe()
-		cancel()
+		// cancel()
 		listenAndServeErr <- err
 	}()
 
-	<-ctx.Done()
+	// <-ctx.Done()
 	shutdownCtx, shutdownCancelFn := context.WithTimeout(context.Background(), time.Second*5)
 	defer shutdownCancelFn()
 
