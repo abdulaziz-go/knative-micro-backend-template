@@ -21,8 +21,7 @@ type productAndService struct {
 }
 
 var (
-	warehouses = map[string]interface{}{}
-	// [0] - guid, [1] - name, [2] - division_id
+	warehouses          = map[string]interface{}{}
 	productsAndServices = map[string]productAndService{}
 )
 
@@ -32,7 +31,7 @@ func (h *Handler) UpdateStock() error {
 		return err
 	}
 
-	stocks, err := GetData()
+	stocks, err := getDataFromSap()
 	if err != nil {
 		fmt.Println("error while getting data", err)
 		return err
@@ -95,7 +94,7 @@ func (h *Handler) UpdateStock() error {
 	return nil
 }
 
-func GetData() ([]pkg.Stock, error) {
+func getDataFromSap() ([]pkg.Stock, error) {
 	var (
 		dateParam = time.Now().Format("2006-01-02")
 		dsn       = "hdb://SYSTEM:140S1InP@212.83.166.117:30015"

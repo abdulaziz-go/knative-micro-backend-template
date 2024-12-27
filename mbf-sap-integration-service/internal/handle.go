@@ -31,14 +31,15 @@ func InitHandler(params *pkg.Params) *Handler {
 }
 
 func (h *Handler) JustTest(w http.ResponseWriter, r *http.Request) {
-	bytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		h.Log.Err(err).Msg("Error on reading request body on Just Test ")
-		return
-	}
+	// bytes, err := io.ReadAll(r.Body)
+	// if err != nil {
+	// 	h.Log.Err(err).Msg("Error on reading request body on Just Test ")
+	// 	return
+	// }
 
-	h.Log.Info().Msg(string(bytes))
-
+	// h.Log.Info().Msg(string(bytes))
+	h.ExchangeRate()
+	h.Log.Info().Msg("CreateOrUpdateWarehouse function successfully")
 	response := map[string]interface{}{
 		"message": "Order created successfully",
 		"status":  200,
@@ -66,54 +67,45 @@ func (h *Handler) Return() http.HandlerFunc {
 
 }
 
-func (h *Handler) PostOrder(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) OrderCreate(w http.ResponseWriter, r *http.Request) {
 	if err := pkg.LoginSAP(); err != nil {
 		h.Log.Err(err).Msg("Error on login SAP")
 		pkg.HandleResponse(w, err, http.StatusInternalServerError)
 		return
 
 	}
-	switch r.Method {
-	case http.MethodPost:
-		requestByte, err := io.ReadAll(r.Body)
-		if err != nil {
-			h.Log.Err(err).Msg("Error on reading request body")
-			pkg.HandleResponse(w, err, http.StatusBadRequest)
-			return
-		}
 
-		// fmt.Println(string(requestByte))
-		var orderRequest pkg.Order
-
-		if err := json.Unmarshal(requestByte, &orderRequest); err != nil {
-			h.Log.Err(err).Msg("Error on unmarshalling request body")
-			pkg.HandleResponse(w, err, http.StatusBadRequest)
-			return
-
-		}
-
-		// While creating a new orders, we need to create it in SAP B1 to
-		if err := h.CreateOrder(orderRequest); err != nil {
-			h.Log.Err(err).Msg("Error on creating order in Ucode")
-			pkg.HandleResponse(w, err, http.StatusInternalServerError)
-			return
-		}
-
-		response := map[string]interface{}{
-			"message": "Order created successfully",
-			"status":  200,
-		}
-
-		pkg.HandleResponse(w, response, http.StatusOK)
-
-	case http.MethodGet:
-		w.Write([]byte("Handled GET request"))
-	case http.MethodPut:
-		// While updating a order, we need to update it in SAP B1 too
-
-	default:
-		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	requestByte, err := io.ReadAll(r.Body)
+	if err != nil {
+		h.Log.Err(err).Msg("Error on reading request body")
+		pkg.HandleResponse(w, err, http.StatusBadRequest)
+		return
 	}
+
+	// fmt.Println(string(requestByte))
+	var orderRequest pkg.Order
+
+	if err := json.Unmarshal(requestByte, &orderRequest); err != nil {
+		h.Log.Err(err).Msg("Error on unmarshalling request body")
+		pkg.HandleResponse(w, err, http.StatusBadRequest)
+		return
+
+	}
+
+	// While creating a new orders, we need to create it in SAP B1 to
+	if err := h.CreateOrder(&orderRequest); err != nil {
+		h.Log.Err(err).Msg("Error on creating order in Ucode")
+		pkg.HandleResponse(w, err, http.StatusInternalServerError)
+		return
+	}
+
+	response := map[string]interface{}{
+		"message": "Order created successfully",
+		"status":  200,
+	}
+
+	pkg.HandleResponse(w, response, http.StatusOK)
+
 }
 
 func (h *Handler) NewHandler() http.HandlerFunc {
@@ -138,15 +130,12 @@ func (h *Handler) NewHandler() http.HandlerFunc {
 }
 
 func (h *Handler) StockCronJob() {
-	fmt.Println("here we go")
 	if err := pkg.LoginSAP(); err != nil {
 		log.Fatal("error while login SAP", err)
-		return
 	}
 
 	if err := h.UpdateStock(); err != nil {
 		log.Fatal("error while creating stock ", err)
-		return
 	}
 
 }
@@ -155,47 +144,39 @@ func (h *Handler) ItemGroupCronjob() {
 	if err := pkg.LoginSAP(); err != nil {
 		h.Log.Err(err).Msg("Error on login SAP ItemGroupCronjob")
 		// log.Fatal("error while login SAP", err)
-		return
 	}
 
 	if err := h.CreateItemGroup(); err != nil {
 		h.Log.Err(err).Msg("Error on creating item group cronjob")
-		return
 	}
 }
 
 func (h *Handler) ProductsCronJob() {
 	if err := pkg.LoginSAP(); err != nil {
 		h.Log.Err(err).Msg("Error on login SAP ProductsCronJob")
-		return
 	}
 
 	if err := h.CreateProduct(); err != nil {
 		h.Log.Err(err).Msg("Error on creating item group cronjob")
-		return
 	}
 }
 
 func (h *Handler) ProductAndServiceCronJob() {
 	if err := pkg.LoginSAP(); err != nil {
 		h.Log.Err(err).Msg("Error on login SAP ProductAndServiceCronJob")
-		return
 	}
 
 	if err := h.CreateProductAndServices(); err != nil {
 		h.Log.Err(err).Msg("Error on login SAP ProductAndServiceCronJob")
-		return
 	}
 }
 
-func (h *Handler) ExchangeRate() {
+// func (h *Handler) ExchangeRate() {
 
-	if err := pkg.LoginSAP(); err != nil {
-		log.Fatal("error while login SAP", err)
-		return
-	}
-	if err := h.CreateExchangeRate(); err != nil {
-		log.Fatal("error while creating exchange rate ", err)
-		return
-	}
-}
+// 	if err := pkg.LoginSAP(); err != nil {
+// 		log.Fatal("error while login SAP", err)
+// 	}
+// 	if err := h.CreateExchangeRate(); err != nil {
+// 		log.Fatal("error while creating exchange rate ", err)
+// 	}
+// }

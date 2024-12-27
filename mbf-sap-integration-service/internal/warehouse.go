@@ -2,41 +2,92 @@ package internal
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"function/pkg"
 	"io"
 	"net/http"
+	"time"
+
+	"github.com/google/uuid"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func (h *Handler) CreateOrUpdateWarehouse(warehouses []map[string]interface{}) error {
+func (h *Handler) CreateOrUpdateWarehouse() error {
+	if err := pkg.LoginSAP(); err != nil {
+		return err
+	}
 
+	warehouses, err := getWarehouse()
+	if err != nil {
+		return fmt.Errorf("failed to get warehouses: %w", err)
+	}
+
+	collection := h.MongoDB.Collection("warehouses")
 	for _, wh := range warehouses {
-		fmt.Println(wh)
+		fmt.Println(wh["WarehouseCode"])
+
+		var subdivision map[string]interface{}
+		{
+			// find subdivision guid
+			collection := h.MongoDB.Collection("subdivisions")
+			filter := bson.M{
+				"name": wh["U_dep"],
+			}
+
+			err := collection.FindOne(context.TODO(), filter).Decode(&subdivision)
+			if err != nil && err != mongo.ErrNoDocuments {
+				h.Log.Err(err).Msg("Error on finding subdivision")
+				return err
+			}
+
+		}
+
 		var (
-			createWHURL = pkg.SingleURL + "warehouse"
-			createWHReq = pkg.Request{
-				Data: map[string]interface{}{
-					"name":           wh["WarehouseName"],
-					"code":           wh["WarehouseCode"],
-					"subdivision_id": "",
+			filter = bson.M{
+				"code": wh["WarehouseCode"],
+			}
+
+			update = bson.M{
+				"$set": bson.M{
+					"updatedAt": time.Now(),
+					"code":      wh["WarehouseCode"],
+					"name":      wh["WarehouseName"],
 				},
 			}
 		)
-
-		_, err := pkg.DoRequest(createWHURL, "POST", createWHReq)
+		result, err := collection.UpdateOne(context.TODO(), filter, update)
 		if err != nil {
-			fmt.Println("Error on creating product:", err)
+			h.Log.Err(err).Msg("Error on updating warehouse")
 			return err
 		}
-	}
 
+		if result.MatchedCount == 0 {
+			_, err := collection.InsertOne(context.TODO(), bson.M{
+				"guid":             uuid.New().String(),
+				"subdivision_id":   subdivision["guid"],
+				"subdivision_name": wh["U_dep"],
+				"code":             wh["WarehouseCode"],
+				"name":             wh["WarehouseName"],
+				"createdAt":        time.Now(),
+				"updatedAt":        time.Now(),
+			})
+
+			if err != nil {
+				h.Log.Err(err).Msg("Error on inserting warehouse")
+				return err
+			}
+		}
+	}
+	h.Log.Info().Msg("Warehouses created/updated successfully")
 	return nil
 }
 
-func GetWarehouse() ([]map[string]interface{}, error) {
+func getWarehouse() ([]map[string]interface{}, error) {
 	var (
-		pagination = "Warehouses?$select=WarehouseName,WarehouseCode"
+		pagination = "Warehouses?$select=WarehouseName,WarehouseCode,U_dep"
 		url        = "https://212.83.166.117:50000/b1s/v1/"
 		method     = "GET"
 

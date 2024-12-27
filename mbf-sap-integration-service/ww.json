@@ -1,0 +1,15 @@
+{
+    "data": {
+        "objects": [
+            {
+                "uzs": 12000,
+                "ruble": 1
+            },
+            {
+                "price": 13000,
+                "code": 2
+            }
+        ],
+        "field_slug": "code"
+    }
+}

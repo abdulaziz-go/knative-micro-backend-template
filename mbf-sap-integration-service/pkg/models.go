@@ -83,43 +83,82 @@ type Stock struct {
 }
 
 type Order struct {
-	Data Data `json:"data"`
+	OrderID                string       `json:"order_id"`
+	ClientID               string       `json:"client_id"`
+	EmployeeID             string       `json:"employee_id"`
+	CardCode               string       `json:"CardCode"`
+	DocDueDate             string       `json:"DocDueDate"`
+	DocDate                string       `json:"DocDate"`
+	UDep                   string       `json:"U_dep"`
+	Currency               string       `json:"currency"`
+	TotalSumBeforeDiscount float64      `json:"total_sum_before_discount"`
+	DirectionName          string       `json:"direction_name"`
+	Discount               float64      `json:"discount"`
+	DeliveryAddress        string       `json:"delivery_address"`
+	OrderItems             []OrderItems `json:"order_items"`
+	DirectionID            string       `json:"direction_id"`
+	SubdivisionName        string       `json:"subdivision_name"`
+	SubdivisionID          string       `json:"subdivision_id"`
+	TotalQuantity          int          `json:"total_quantity"`
+	PaymentType            string       `json:"payment_type"`
+}
+type OrderItems struct {
+	GUID                   string          `json:"guid,omitempty"`
+	StockID                string          `json:"stock_id"`
+	ProductAndServiceID    string          `json:"product_and_service_id"`
+	ItemCode               string          `json:"ItemCode"`
+	WarehouseData          []WarehouseData `json:"warehouse_data,omitempty"`
+	UnitPrice              float64         `json:"UnitPrice"`
+	TotalSum               float64         `json:"total_sum"`
+	PaymentType            string          `json:"payment_type"`
+	TotalSumBeforeDiscount float64         `json:"total_sum_before_discount"`
+	SoldPrice              float64         `json:"sold_price"`
+	WarehouseCode          string          `json:"WarehouseCode,omitempty"`
+}
+type WarehouseData struct {
+	WarehouseGUID string `json:"warehouse_guid"`
+	WarehouseCode string `json:"WarehouseCode,omitempty"`
+	Quantity      string `json:"Quantity"`
 }
 
-type Data struct {
-	ClientID               string      `json:"client_id"`
-	CardCode               string      `json:"CardCode"`
-	DocDueDate             string      `json:"DocDueDate"`
-	CreatedDate            string      `json:"DocDate"`
-	UDirection             string      `json:"U_direction"`
-	DirectionId            string      `json:"direction_id"`
-	UDep                   string      `json:"U_dep"`
-	SubdivisionID          string      `json:"subdivision_id"`
-	Currency               string      `json:"currency"`
-	TotalSumBeforeDiscount float64     `json:"total_sum_before_discount"` //float64
-	Discount               float64     `json:"discount"`                  //float64
-	Status                 []string    `json:"status"`
-	CurrencyID             string      `json:"currency_id"`
-	OrderItems             []OrderItem `json:"order_items"`
-	DeliveryAddress        string      `json:"delivery_address"`
-	WarehouseId            string      `json:"warehouse_id"`
-	EmployeeID             string      `json:"employee_id"`
-}
-type OrderItem struct {
-	StockGuid              string  `json:"stock_id"`
-	ProductAndServiceID    string  `json:"product_and_service_id"`
-	ItemCode               string  `json:"ItemCode"`
-	Quantity               int     `json:"Quantity"` // int
-	WarehouseCode          string  `json:"WarehouseCode"`
-	WarehouseId            string  `json:"warehouse_id"`
-	UnitPrice              float64 `json:"UnitPrice"` // float64
-	TotalSum               float64 `json:"total_sum"` // float64
-	PaymentType            string  `json:"payment_type"`
-	TotalSumBeforeDiscount float64 `json:"total_sum_before_discount"` // float64
-	DirectionId            string  `json:"direction_id"`
-	DirectionName          string  `json:"direction_name"`
-	SubdivisionName        string  `json:"subdivision_name"`
-}
+// type Order struct {
+// 	Data OrderData `json:"data"`
+// }
+
+// type OrderData struct {
+// 	ClientID               string      `json:"client_id"`
+// 	CardCode               string      `json:"CardCode"`
+// 	DocDueDate             string      `json:"DocDueDate"`
+// 	CreatedDate            string      `json:"DocDate"`
+// 	UDirection             string      `json:"U_direction"`
+// 	DirectionId            string      `json:"direction_id"`
+// 	UDep                   string      `json:"U_dep"`
+// 	SubdivisionID          string      `json:"subdivision_id"`
+// 	Currency               string      `json:"currency"`
+// 	TotalSumBeforeDiscount float64     `json:"total_sum_before_discount"` //float64
+// 	Discount               float64     `json:"discount"`                  //float64
+// 	Status                 []string    `json:"status"`
+// 	CurrencyID             string      `json:"currency_id"`
+// 	OrderItems             []OrderItem `json:"order_items"`
+// 	DeliveryAddress        string      `json:"delivery_address"`
+// 	WarehouseId            string      `json:"warehouse_id"`
+// 	EmployeeID             string      `json:"employee_id"`
+// }
+// type OrderItem struct {
+// 	StockGuid              string  `json:"stock_id"`
+// 	ProductAndServiceID    string  `json:"product_and_service_id"`
+// 	ItemCode               string  `json:"ItemCode"`
+// 	Quantity               int     `json:"Quantity"` // int
+// 	WarehouseCode          string  `json:"WarehouseCode"`
+// 	WarehouseId            string  `json:"warehouse_id"`
+// 	UnitPrice              float64 `json:"UnitPrice"` // float64
+// 	TotalSum               float64 `json:"total_sum"` // float64
+// 	PaymentType            string  `json:"payment_type"`
+// 	TotalSumBeforeDiscount float64 `json:"total_sum_before_discount"` // float64
+// 	DirectionId            string  `json:"direction_id"`
+// 	DirectionName          string  `json:"direction_name"`
+// 	SubdivisionName        string  `json:"subdivision_name"`
+// }
 
 type OrderSapItems struct {
 	ItemCode string  `json:"ItemCode"`

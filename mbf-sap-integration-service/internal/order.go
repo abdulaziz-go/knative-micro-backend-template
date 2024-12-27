@@ -1,9 +1,6 @@
 package internal
 
 import (
-	// "fmt"
-	// "handler/function/config"
-	// "handler/function/helper"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -15,8 +12,6 @@ import (
 
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	// "github.com/google/uuid"
 )
 
 type documentLine struct {
@@ -38,69 +33,70 @@ type document struct {
 	DocumentLines []documentLine `json:"DocumentLines"`
 }
 
-func (h *Handler) CreateOrder(order pkg.Order) error {
+// 1. check cases is it razovey klient if so then продажа +- оплата in sap table else just продажа
+// 2. check if stock is enough for 2 step order
+func (h *Handler) CreateOfflineOrder(order *pkg.Order) error {
+	if err := pkg.LoginSAP(); err != nil {
+		h.Log.Err(err).Msg("Error on login SAP")
+		return err
+	}
 
-	var (
-		stocksIDs = map[string]int{}
-		orderGuid = uuid.New().String()
-		url       = pkg.SingleURL + "sale"
-		reqBody   = pkg.Request{
-			Data: map[string]interface{}{
-				// "code":                      "", // must be generated
-				// "created_date":              order.Data.CreatedDate,
-				"delivery_address":          order.Data.DeliveryAddress,
-				"created_date":              time.Now().Format(time.RFC3339),
-				"currency_id":               pkg.Currency[order.Data.Currency],
-				"direction_id":              order.Data.DirectionId,
-				"direction_name":            order.Data.UDirection,
-				"client_id":                 order.Data.ClientID,
-				"total_sum":                 order.Data.TotalSumBeforeDiscount - order.Data.Discount,
-				"discount":                  order.Data.Discount,
-				"total_sum_before_discount": order.Data.TotalSumBeforeDiscount,
-				"status":                    []string{"new"},
-				"employee_id":               order.Data.EmployeeID,
-				"warehouse_id":              order.Data.WarehouseId,
-				"guid":                      orderGuid,
-			},
+	if order.PaymentType == "cash" {
+		// create order in sap
+		if err := createOrderInSAP(order); err != nil {
+			fmt.Println("Error while creating order in SAP:", err)
+			return err
 		}
+	}
 
-		orderItems = pkg.MultipleUpdateRequest{}
-		document   = document{
-			CardCode:      order.Data.CardCode,
-			DocDueDate:    order.Data.DocDueDate,
-			DocDate:       order.Data.DocDueDate,
-			UDirection:    order.Data.UDirection,
-			UDep:          order.Data.UDep,
-			DocCurrency:   order.Data.Currency,
-			DocumentLines: make([]documentLine, len(order.Data.OrderItems)),
-		}
-	)
+	// var (
+	// 	orderGuid = uuid.New().String()
+	// 	orderBody = map[string]interface{}{
+	// 		"guid":                      orderGuid,
+	// 		"status":                    []string{"new"},
+	// 		"total_sum_before_discount": order.TotalSumBeforeDiscount,
+	// 		"discount":                  order.Discount,
+	// 		"client_id":                 order.ClientID,
+	// 		"direction_id":              order.DirectionID,
+	// 		"subdivision_id":            order.SubdivisionID,
+	// 		"created_date":              time.Now().Format(time.RFC3339),
+	// 		"currency_id":               pkg.Currency[order.Currency],
+	// 		"delivery_address":          order.DeliveryAddress,
+	// 		"employee_id":               order.EmployeeID,
+	// 		"total_quantity":            order.TotalQuantity,
+	// 		"payment_type":              order.PaymentType, // is cash and client is razovey klient
 
-	for index, item := range order.Data.OrderItems {
-		stocksIDs[item.StockGuid] = item.Quantity
+	// 		// "step":1/2, // if warehouse quantity less than order quantity then it is 2 step order
+	// 		// "code":"",// sap code, after insertin in sap must be added
+	// 		// "payment_amount":            order.PaymentAmount, // backend formula in ucode
+	// 		// "total_sum":                 order.TotalSumBeforeDiscount - order.Discount, // this is formula frontend in ucode
+	// 	}
+	// )
 
+	return nil
+
+}
+
+
+
+func createOrderInSAP(order *pkg.Order) error {
+	document := document{
+		CardCode:      order.CardCode,
+		DocDueDate:    order.DocDueDate,
+		DocDate:       order.DocDueDate,
+		UDirection:    order.DirectionName,
+		UDep:          order.UDep,
+		DocCurrency:   order.Currency,
+		DocumentLines: make([]documentLine, len(order.OrderItems)),
+	}
+
+	for index, item := range order.OrderItems {
 		document.DocumentLines[index] = documentLine{
 			ItemCode:      item.ItemCode,
-			Quantity:      fmt.Sprintf("%d", item.Quantity),
 			WarehouseCode: item.WarehouseCode,
 			UnitPrice:     fmt.Sprintf("%f", item.UnitPrice),
-			UDirection:    item.DirectionName,
-			UDep:          order.Data.UDep,
+			UDep:          order.SubdivisionName,
 		}
-
-		orderItems.Data.Objects = append(orderItems.Data.Objects, map[string]interface{}{
-			"sale_id":                orderGuid,
-			"direction_id":           item.DirectionId,
-			"direction_name":         item.DirectionName,
-			"currency_id":            pkg.Currency[order.Data.Currency],
-			"sale_price":             item.UnitPrice,
-			"warehouse_id":           item.WarehouseId,
-			"quantity":               item.Quantity,
-			"price":                  item.UnitPrice,
-			"sold_quantity":          item.Quantity,
-			"product_and_service_id": item.ProductAndServiceID,
-			"stock_id":               item.StockGuid,
-		})
 	}
 
 	requestBody, err := json.Marshal(document)
@@ -108,7 +104,6 @@ func (h *Handler) CreateOrder(order pkg.Order) error {
 		return err
 	}
 
-	// SAP
 	req, err := http.NewRequest("POST", "https://212.83.166.117:50000/b1s/v1/Orders", bytes.NewBuffer(requestBody))
 	if err != nil {
 		return err
@@ -118,37 +113,135 @@ func (h *Handler) CreateOrder(order pkg.Order) error {
 
 	resp, err := pkg.Client.Do(req)
 	if err != nil {
-		fmt.Println("Request error:", err)
 		return err
 	}
 
 	respByte, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Println("Error on reading response body:", err)
+		return err
 	}
 
 	var sapResponse = map[string]interface{}{}
 	err = json.Unmarshal(respByte, &sapResponse)
 	if err != nil {
-		fmt.Println("Error on unmarshalling response body:", err)
 		return err
 	}
 
-	// Update stock in ucode
-	if err := h.updateStock(stocksIDs); err != nil {
-		fmt.Println("error while updating stock", err)
-		return err
-	}
-
-	// Ucode
-	// fmt.Println("SAP RESPONSE: ", sapResponse)
 	if sapResponse["error"] != nil {
-		fmt.Println("SAP ORDER ERROR: ", sapResponse["error"])
 		return fmt.Errorf("error while creating order: %v", sapResponse["error"])
 	}
-	fmt.Println("DOC NUM: ", sapResponse["DocNum"])
-	reqBody.Data["code"] = sapResponse["DocNum"]
-	_, err = pkg.DoRequest(url, "POST", reqBody)
+
+	return nil
+}
+
+func (h *Handler) isStockEnough(stocksIDs map[string]int) bool {
+	collection := h.MongoDB.Collection("stocks")
+	isEnough := true
+	for guid, quantity := range stocksIDs {
+		var (
+			ctx    = context.Background()
+			filter = bson.M{"guid": guid}
+			stock  map[string]interface{}
+		)
+
+		if err := collection.FindOne(ctx, filter).Decode(&stock); err != nil {
+			h.Log.Err(err).Msgf("Error while getting stock with GUID %s", guid)
+			return false
+		}
+
+		stockQuantity, ok := stock["quantity"].(int)
+		if !ok {
+			fmt.Printf("Invalid quantity type for stock with GUID %s\n", guid)
+			return false
+		}
+
+		if stockQuantity >= quantity { // current stock amount is enough for order, just update stock
+			update := bson.M{"$set": bson.M{"quantity": stockQuantity - quantity}}
+			_, err := collection.UpdateOne(ctx, filter, update)
+			if err != nil {
+				h.Log.Err(err).Msgf("Error while updating stock with GUID %s", guid)
+				return false
+			}
+
+		} else {
+			isEnough = false
+		}
+	}
+
+	return isEnough
+}
+
+func (h *Handler) CreateOrder(order *pkg.Order) error {
+
+	var (
+		// stocksIDs = map[string]int{}
+		orderGuid = uuid.New().String()
+		url       = pkg.SingleURL + "sale"
+		reqBody   = pkg.Request{
+			Data: map[string]interface{}{
+				"delivery_address":          order.DeliveryAddress,
+				"created_date":              time.Now().Format(time.RFC3339),
+				"currency_id":               pkg.Currency[order.Currency],
+				"direction_id":              order.DirectionID,
+				"direction_name":            order.DirectionName,
+				"client_id":                 order.ClientID,
+				"total_sum":                 order.TotalSumBeforeDiscount - order.Discount,
+				"discount":                  order.Discount,
+				"total_sum_before_discount": order.TotalSumBeforeDiscount,
+				"status":                    []string{"new"},
+				"employee_id":               order.EmployeeID,
+				"guid":                      orderGuid,
+				// "code":                      "", // must be generated
+				// "created_date":              order.Data.CreatedDate,
+				// "warehouse_id":              order.Data.WarehouseId,
+			},
+		}
+
+		orderItems = pkg.MultipleUpdateRequest{}
+		document   = document{
+			CardCode:      order.CardCode,
+			DocDueDate:    order.DocDueDate,
+			DocDate:       order.DocDueDate,
+			UDirection:    order.DirectionName,
+			UDep:          order.UDep,
+			DocCurrency:   order.Currency,
+			DocumentLines: make([]documentLine, len(order.OrderItems)),
+		}
+	)
+
+	for index, item := range order.OrderItems {
+		// stocksIDs[item.StockGuid] = item.Quantity
+
+		document.DocumentLines[index] = documentLine{
+			ItemCode:      item.ItemCode,
+			WarehouseCode: item.WarehouseCode,
+			UnitPrice:     fmt.Sprintf("%f", item.UnitPrice),
+			UDep:          order.UDep,
+			// UDirection:    item.DirectionName,
+			// Quantity:      fmt.Sprintf("%d", item.Quantity),
+		}
+
+		orderItems.Data.Objects = append(orderItems.Data.Objects, map[string]interface{}{
+			"price":                  item.UnitPrice,
+			"sale_id":                orderGuid,
+			"sale_price":             item.UnitPrice,
+			"currency_id":            pkg.Currency[order.Currency],
+			"product_and_service_id": item.ProductAndServiceID,
+			// "direction_id":           item.DirectionId,
+			// "direction_name":         item.DirectionName,
+			// "warehouse_id":           item.WarehouseId,
+			// "quantity":               item.Quantity,
+			// "sold_quantity":          item.Quantity,
+			// "stock_id":               item.StockGuid,
+		})
+	}
+
+	// if err := h.updateStock(stocksIDs); err != nil {
+	// 	fmt.Println("error while updating stock", err)
+	// 	return err
+	// }
+
+	_, err := pkg.DoRequest(url, "POST", reqBody)
 	if err != nil {
 		fmt.Println("Error on creating order in ucode:", err)
 		return err
@@ -161,52 +254,4 @@ func (h *Handler) CreateOrder(order pkg.Order) error {
 	}
 	fmt.Println("Order created successfully")
 	return nil
-}
-
-func (h *Handler) updateStock(stocksIDs map[string]int) error {
-	collection := h.MongoDB.Collection("stocks")
-	// ctx := context.Background()
-
-	for guid, quantity := range stocksIDs {
-		if !isStockEnough(*collection, guid, quantity) {
-			// if stock is not enough we need to make this order 2 step
-			//
-			return fmt.Errorf("stock with GUID %s is not enough", guid)
-
-		}
-	}
-
-	return nil
-}
-
-func isStockEnough(collection mongo.Collection, guid string, quantity int) bool {
-	// collection := db.Collection("stocks")
-	ctx := context.Background()
-
-	filter := bson.M{"guid": guid}
-
-	var stock map[string]interface{}
-	if err := collection.FindOne(ctx, filter).Decode(&stock); err != nil {
-		fmt.Printf("Error while decoding stock with GUID %s: %v\n", guid, err)
-		return false
-	}
-
-	stockQuantity, ok := stock["quantity"].(int)
-
-	if !ok {
-		fmt.Printf("Invalid quantity type for stock with GUID %s\n", guid)
-		return false
-	}
-
-	if stockQuantity >= quantity {
-		update := bson.M{"$set": bson.M{"quantity": stockQuantity - quantity}}
-		_, err := collection.UpdateOne(ctx, filter, update)
-		if err != nil {
-			fmt.Printf("Error while updating stock with GUID %s: %v\n", guid, err)
-			return false
-		}
-		return true
-	}
-
-	return false
 }
