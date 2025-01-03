@@ -151,6 +151,7 @@ func parseEnv() {
 	parseInt("PORT", port)
 }
 
+
 // register all cronjobs here...
 func regCronjobs(h *function.Handler) (*cron.Cron, error) {
 	var c = cron.New()
