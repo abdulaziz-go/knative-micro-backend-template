@@ -68,8 +68,8 @@ func run() error {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigs
-		fmt.Println("CANCEL CAME HERE")
-		cancel()
+		fmt.Println("CANCEL CAME HERE", sigs)
+		// cancel()
 	}()
 
 	// Use a gorilla mux for handling all HTTP requests
