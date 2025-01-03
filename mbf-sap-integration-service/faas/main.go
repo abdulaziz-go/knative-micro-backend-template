@@ -68,7 +68,7 @@ func run() error {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigs
-		fmt.Println("CANCEL CAME HERE", sigs)
+		fmt.Println("CANCEL CAME HERE", <-sigs)
 		// cancel()
 	}()
 
