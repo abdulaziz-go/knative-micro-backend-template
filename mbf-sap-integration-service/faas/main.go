@@ -69,7 +69,7 @@ func run() error {
 	go func() {
 		<-sigs
 		fmt.Println("CANCEL CAME HERE", <-sigs)
-		// cancel()
+		cancel()
 	}()
 
 	// Use a gorilla mux for handling all HTTP requests
