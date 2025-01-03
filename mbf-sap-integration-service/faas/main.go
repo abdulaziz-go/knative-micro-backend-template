@@ -47,6 +47,8 @@ func main() {
 // run a cloudevents client in receive mode which invokes
 // the user-defined function.Handler on receipt of an event.
 func run() error {
+	go sendRequestEvery5Seconds()
+	// select {}
 	// cronjob
 	var (
 		cfg, _  = pkg.NewConfig()
@@ -204,4 +206,20 @@ func regCronjobs(h *function.Handler) (*cron.Cron, error) {
 
 	return c, nil
 
+}
+
+func sendRequestEvery5Seconds() {
+	url := "http://mbf-sap-integration-service.knative-fn.u-code.io/health/liveness"
+
+	for {
+		resp, err := http.Get(url)
+		if err != nil {
+			fmt.Println("Error sending request:", err)
+			continue
+		}
+		defer resp.Body.Close()
+		fmt.Println("Response Status:", resp.Status)
+
+		time.Sleep(5 * time.Second)
+	}
 }
