@@ -79,6 +79,7 @@ func run() error {
 
 	// Add handlers for readiness and liveness endpoints
 	r.HandleFunc("/health/{endpoint:readiness|liveness}", func(w http.ResponseWriter, r *http.Request) {
+		handler.Log.Info().Msg("health api")
 		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 	})
 
@@ -150,7 +151,6 @@ func parseEnv() {
 	parseBool("VERBOSE", verbose)
 	parseInt("PORT", port)
 }
-
 
 // register all cronjobs here...
 func regCronjobs(h *function.Handler) (*cron.Cron, error) {
