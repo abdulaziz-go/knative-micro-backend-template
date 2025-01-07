@@ -37,7 +37,8 @@ func (h *Handler) MovementRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if movement.MovementSend {
+	switch movement.MovementType {
+	case "SEND":
 
 		if err := stockTransferSAP(movement); err != nil {
 			h.HandleError(w, err, "Failed to send data to SAP in MovementRequest")
@@ -49,6 +50,19 @@ func (h *Handler) MovementRequest(w http.ResponseWriter, r *http.Request) {
 		}
 		pkg.HandleResponse(w, map[string]interface{}{"data": "OK"}, http.StatusCreated)
 		return
+
+	case "IN_ONE":
+		if err := stockTransferSAP(movement); err != nil {
+			h.HandleError(w, err, "Failed to send data to SAP in MovementRequest")
+			return
+		}
+
+		if err := sendToUcode(movement, 0, 0); err != nil {
+
+		}
+		pkg.HandleResponse(w, map[string]interface{}{"data": "OK"}, http.StatusCreated)
+		return
+
 	}
 
 	// Step 3: Send transferInventory to SAP
@@ -167,7 +181,7 @@ func createSAPRequestBody(movement pkg.MovementRequest) ([]byte, error) {
 			"FromWarehouseCode": item.ToWarehouseCode,
 		}
 
-		if movement.MovementSend {
+		if movement.MovementType == "SEND" {
 			data["BaseType"] = "InventoryTransferRequest"
 			data["BaseLine"] = idx
 			data["BaseEntry"] = movement.BaseEntry

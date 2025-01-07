@@ -223,7 +223,7 @@ type MovementRequest struct {
 	ToWarehouseID     string          `json:"to_warehouse_id"`
 	ToWarehouseCode   int             `json:"to_warehouse_code"`
 	CreatedDate       string          `json:"created_date"`
-	MovementSend      bool            `json:"movement_send"`
+	MovementType      string          `json:"movement_type"`
 	BaseEntry         int             `json:"base_entry"`
 	Items             []MovementItems `json:"items"`
 }

@@ -90,7 +90,7 @@ func run() error {
 		// router.Put("/orders", handler.Order())
 		// router.Delete("/orders", handler.Order())
 
-		r.Post("/movement/request", handler.MovementRequest)
+		r.Post("/movement", handler.MovementRequest)
 		// r.Post("/movement/send")
 		// r.Post("/movement/")
 
