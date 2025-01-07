@@ -3,7 +3,6 @@ package internal
 import (
 	"encoding/json"
 	"fmt"
-	// "function/internal"
 	"function/pkg"
 	"io"
 	"log"
@@ -28,6 +27,13 @@ func InitHandler(params *pkg.Params) *Handler {
 		Log:     params.Log,
 		MongoDB: conn,
 	}
+}
+
+func (h *Handler) HandleError(w http.ResponseWriter, err error, msg string) {
+	h.Log.Err(err).Msg(msg + err.Error())
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusInternalServerError)
+	w.Write([]byte(`{"error": "` + err.Error() + `"}`))
 }
 
 func (h *Handler) JustTest(w http.ResponseWriter, r *http.Request) {

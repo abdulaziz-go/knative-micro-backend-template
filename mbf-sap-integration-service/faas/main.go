@@ -90,9 +90,12 @@ func run() error {
 		// router.Put("/orders", handler.Order())
 		// router.Delete("/orders", handler.Order())
 
-		r.Get("/test", handler.JustTest)
+		r.Post("/movement/request", handler.MovementRequest)
+		// r.Post("/movement/send")
+		// r.Post("/movement/")
 
-		r.Post("/conversion", nil)
+		r.Get("/test", handler.JustTest)
+		r.Post("/conversion", nil) // konvertatsiya
 	})
 
 	srv := &http.Server{
@@ -209,7 +212,7 @@ func regCronjobs(h *function.Handler) (*cron.Cron, error) {
 }
 
 func sendRequestEvery5Seconds() {
-	url := "http://mbf-sap-integration-service.knative-fn.u-code.io/health/liveness"
+	url := pkg.KnativeURL + "health/liveness"
 
 	for {
 		resp, err := http.Get(url)
@@ -217,8 +220,8 @@ func sendRequestEvery5Seconds() {
 			fmt.Println("Error sending request:", err)
 			continue
 		}
-		defer resp.Body.Close()
 		fmt.Println("Response Status:", resp.Status)
+		resp.Body.Close()
 
 		time.Sleep(5 * time.Second)
 	}

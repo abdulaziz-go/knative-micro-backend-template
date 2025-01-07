@@ -5,12 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	sdk "github.com/ucode-io/ucode_sdk"
 	"io"
 	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	sdk "github.com/ucode-io/ucode_sdk"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -51,13 +52,13 @@ func LoginSAP() error {
 	var (
 		loginSAPResponse LoginSAPResponse
 
-		url    = "https://212.83.166.117:50000/b1s/v1/Login"
+		url    = "https://212.83.166.117:50000/b1s/v2/Login"
 		method = "POST"
 
 		payload = strings.NewReader(`{
-    		"CompanyDB": "MBF_INTEGRATION_TEST", 
-    		"Password": "q1w2e3r4T%",
-    		"UserName": "manager"
+    		"CompanyDB": "MBF_TEST1", 
+    		"UserName": "manager",
+    		"Password": "1234"
 		}`)
 	)
 
@@ -121,7 +122,7 @@ func DoRequest(url string, method string, body interface{}) ([]byte, error) {
 	}
 
 	request.Header.Add("authorization", "API-KEY")
-
+	request.Header.Add("X-API-KEY", AppId)
 	resp, err := client.Do(request)
 	if err != nil {
 		return nil, nil

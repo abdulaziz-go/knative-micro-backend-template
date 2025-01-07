@@ -206,3 +206,33 @@ type ReturnItem struct {
 	UnitPrice           string `json:"UnitPrice"`
 	WarehouseID         string `json:"warehouse_id"`
 }
+
+// movement models ...
+type MovementRequest struct {
+	GUID              string          `json:"guid"`
+	DirectionID       string          `json:"direction_id"`
+	DirectionName     string          `json:"direction_name"`
+	SubdivisionID     string          `json:"subdivision_id"`
+	SubdivisionName   string          `json:"subdivision_name"`
+	SubdivisionID2    string          `json:"subdivision_id_2"`
+	SubdivisionName2  string          `json:"subdivision_name_2"`
+	EmployeeID        string          `json:"employee_id"`
+	ClientID          string          `json:"client_id"`
+	FromWarehouseID   string          `json:"from_warehouse_id"`
+	FromWarehouseCode int             `json:"from_warehouse_code"`
+	ToWarehouseID     string          `json:"to_warehouse_id"`
+	ToWarehouseCode   int             `json:"to_warehouse_code"`
+	CreatedDate       string          `json:"created_date"`
+	MovementSend      bool            `json:"movement_send"`
+	BaseEntry         int             `json:"base_entry"`
+	Items             []MovementItems `json:"items"`
+}
+type MovementItems struct {
+	ItemCode          int    `json:"item_code"`
+	StockID           string `json:"stock_id"`
+	Quantity          int    `json:"quantity"`
+	FromWarehouseID   string `json:"from_warehouse_id"`
+	FromWarehouseCode int    `json:"from_warehouse_code"`
+	ToWarehouseID     string `json:"to_warehouse_id"`
+	ToWarehouseCode   int    `json:"to_warehouse_code"`
+}
