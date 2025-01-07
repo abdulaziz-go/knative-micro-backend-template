@@ -127,6 +127,7 @@ func transferInventorySAP(movement pkg.MovementRequest) (int, int, error) {
 		return 0, 0, fmt.Errorf("failed to create SAP request body: %w", err)
 	}
 
+	fmt.Println(string(requestBody))
 	// Create the HTTP request
 	req, err := http.NewRequest(http.MethodPost, sapInventoryTransferURL, bytes.NewBuffer(requestBody))
 	if err != nil {
@@ -152,7 +153,17 @@ func transferInventorySAP(movement pkg.MovementRequest) (int, int, error) {
 	var data = map[string]interface{}{}
 	fmt.Printf("SAP Response: %s\n", string(body))
 
-	return data["DocEntry"].(int), data["DocNum"].(int), nil
+	docEntry, ok := data["DocEntry"].(int)
+	if !ok {
+		return 0, 0, fmt.Errorf("failed to get DocEntry from SAP response")
+	}
+
+	docNum, ok := data["DocNum"].(int)
+	if !ok {
+		return 0, 0, fmt.Errorf("failed to get DocNum from SAP response")
+	}
+
+	return docEntry, docNum, nil
 }
 
 // createSAPRequestBody generates the JSON body for the SAP request
@@ -178,7 +189,7 @@ func createSAPRequestBody(movement pkg.MovementRequest) ([]byte, error) {
 			"ItemCode":          item.ItemCode,
 			"Quantity":          item.Quantity,
 			"WarehouseCode":     item.ToWarehouseCode,
-			"FromWarehouseCode": item.ToWarehouseCode,
+			"FromWarehouseCode": item.FromWarehouseCode,
 		}
 
 		if movement.MovementType == "SEND" {

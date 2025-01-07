@@ -1,15 +1,17 @@
 {
-    "data": {
-        "objects": [
-            {
-                "uzs": 12000,
-                "ruble": 1
-            },
-            {
-                "price": 13000,
-                "code": 2
-            }
-        ],
-        "field_slug": "code"
-    }
+    "DocDate": "2025-1-7",
+    "DueDate": "2025-1-7",
+    "FromWarehouse": 92,
+    "StockTransferLines": [
+        {
+            "FromWarehouseCode": 92,
+            "ItemCode": 9248,
+            "LineNum": 0,
+            "Quantity": 1,
+            "WarehouseCode": 94
+        }
+    ],
+    "ToWarehouse": 94,
+    "U_dep": "Жиззах",
+    "U_direction": "ВЕЛО"
 }
