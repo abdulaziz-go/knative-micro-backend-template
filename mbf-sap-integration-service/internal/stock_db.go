@@ -21,7 +21,7 @@ type productAndService struct {
 }
 
 var (
-	warehouses          = map[string]interface{}{}
+	warehouses          = map[string][2]string{} // 0 warehouse guid, 1 subdivision guid
 	productsAndServices = map[string]productAndService{}
 )
 
@@ -47,20 +47,21 @@ func (h *Handler) UpdateStock() error {
 		// fmt.Println(stock.ItemCode, stock.WhsCode, warehouses[stock.WhsCode])
 
 		var (
-			whsGuid     = warehouses[stock.WhsCode]
-			productData = productsAndServices[stock.ItemCode]
-			filter      = bson.M{
+			whsGuid, whsSubdivisionGuid = warehouses[stock.WhsCode][0], warehouses[stock.WhsCode][1]
+			productData                 = productsAndServices[stock.ItemCode]
+			filter                      = bson.M{
 				"product_and_service_id": productData.guid,
 				"warehouse_id":           whsGuid,
 			}
 
 			updateBody = bson.M{
 				"$set": bson.M{
-					"updatedAt":    time.Now(),
-					"quantity":     stock.Quantity,
-					"price":        stock.CostPrice,
-					"product_name": productData.productName,
-					"direction_id": productData.directionId,
+					"updatedAt":      time.Now(),
+					"quantity":       stock.Quantity,
+					"price":          stock.CostPrice,
+					"product_name":   productData.productName,
+					"direction_id":   productData.directionId,
+					"subdivision_id": whsSubdivisionGuid,
 				},
 			}
 		)
@@ -86,6 +87,7 @@ func (h *Handler) UpdateStock() error {
 				"product_and_service_id": productData.guid,
 				"product_name":           productData.productName,
 				"direction_id":           productData.directionId,
+				"subdivision_id":         whsSubdivisionGuid,
 			}
 
 			collectionStock.InsertOne(context.Background(), createBody)
@@ -245,7 +247,10 @@ func (h *Handler) getProductAndWhs() error {
 
 		var code = pkg.GetStringValue(document, "code")
 
-		warehouses[code] = document["guid"]
+		warehouses[code] = [2]string{
+			0: pkg.GetStringValue(document, "guid"),
+			1: pkg.GetStringValue(document, "subdivision_id"),
+		}
 
 	}
 
