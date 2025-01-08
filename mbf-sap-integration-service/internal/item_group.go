@@ -17,6 +17,11 @@ import (
 )
 
 func (h *Handler) CreateItemGroup() error {
+	if err := pkg.LoginSAP(); err != nil {
+		h.Log.Err(err).Msg("Error on login SAP ItemGroupCronjob")
+		return err
+	}
+
 	itemGroups, err := getItemGroup()
 	if err != nil {
 		return fmt.Errorf("failed to get itemGroups: %w", err)
@@ -65,7 +70,7 @@ func (h *Handler) CreateItemGroup() error {
 	return nil
 }
 
-func  getItemGroup() ([]map[string]interface{}, error) {
+func getItemGroup() ([]map[string]interface{}, error) {
 	var (
 		pagination = "ItemGroups?$select=Number,GroupName"
 		url        = "https://212.83.166.117:50000/b1s/v1/"

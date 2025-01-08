@@ -14,7 +14,15 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-func (h *Handler) CreateProductAndServices() error {
+var itemGroupId = map[int]string{}
+
+// code
+func (h *Handler) ProductAndServiceCronJob() error {
+	if err := pkg.LoginSAP(); err != nil {
+		h.Log.Err(err).Msg("Error on login SAP ProductAndServiceCronJob")
+		return err
+	}
+
 	if err := h.itemGroup(); err != nil {
 		return fmt.Errorf("failed to get item group: %w", err)
 	}
@@ -70,8 +78,6 @@ func (h *Handler) CreateProductAndServices() error {
 
 	return nil
 }
-
-var itemGroupId = map[int]string{}
 
 func (h *Handler) itemGroup() error {
 

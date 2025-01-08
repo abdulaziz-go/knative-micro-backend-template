@@ -7,7 +7,9 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"time"
 
+	"github.com/robfig/cron/v3"
 	"github.com/rs/zerolog"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -44,8 +46,11 @@ func (h *Handler) JustTest(w http.ResponseWriter, r *http.Request) {
 	// }
 
 	// h.Log.Info().Msg(string(bytes))
-	h.ExchangeRate()
-	h.Log.Info().Msg("CreateOrUpdateWarehouse function successfully")
+	// h.ExchangeRate()
+	if err := h.UpdateStock(); err != nil {
+		h.Log.Err(err).Msg("Error on updating stock")
+	}
+	h.Log.Info().Msg("Stock function successfully")
 	response := map[string]interface{}{
 		"message": "Order created successfully",
 		"status":  200,
@@ -135,54 +140,60 @@ func (h *Handler) NewHandler() http.HandlerFunc {
 	}
 }
 
-func (h *Handler) StockCronJob() {
-	if err := pkg.LoginSAP(); err != nil {
-		log.Fatal("error while login SAP", err)
+// register all cronjobs here...
+func (h *Handler) RegCronjobs() (*cron.Cron, error) {
+	var c = cron.New()
+
+	// Scheduled the task to run at every 5 minutes
+	_, err := c.AddFunc("*/5 * * * *", func() {
+		fmt.Println("Cronjob exchange task running at", time.Now().Format(time.RFC3339))
+		h.ExchangeRate()
+	})
+	if err != nil {
+		h.Log.Err(err).Msg("Error scheduling task, ExchangeRate")
+		return nil, err
+
 	}
 
-	if err := h.UpdateStock(); err != nil {
-		log.Fatal("error while creating stock ", err)
+	// Scheduled the task to run at 9:00 AM every day
+	_, err = c.AddFunc("0 9 * * *", func() {
+		fmt.Println("Cronjob ItemGroupCronjob task running at", time.Now().Format(time.RFC3339))
+		h.CreateItemGroup()
+	})
+	if err != nil {
+		h.Log.Err(err).Msg("Error scheduling task, CreateItemGroup")
+		return nil, err
 	}
 
+	// Scheduled the task to run every hour minutes 0
+	_, err = c.AddFunc("0 * * * *", func() {
+		fmt.Println("Cronjob ProductAndServiceCronJob task running at", time.Now().Format(time.RFC3339))
+		h.ProductAndServiceCronJob()
+	})
+	if err != nil {
+		h.Log.Err(err).Msg("Error scheduling task, ProductAndServiceCronJob")
+		return nil, err
+	}
+
+	// Scheduled the task to run every hour minutes 5
+	_, err = c.AddFunc("5 * * * *", func() {
+		fmt.Println("Cronejob stock running at", time.Now().Format(time.RFC3339))
+		h.UpdateStock()
+	})
+	if err != nil {
+		h.Log.Err(err).Msg("Error scheduling task, UpdateStock")
+		return nil, err
+	}
+
+	// Scheduled the task to run at 5:00 AM every day
+	_, err = c.AddFunc("0 5 * * *", func() {
+		fmt.Println("Cronjob create or update whs task running at", time.Now().Format(time.RFC3339))
+		h.CreateOrUpdateWarehouse()
+	})
+	if err != nil {
+		h.Log.Err(err).Msg("Error scheduling task, CreateOrUpdateWarehouse")
+		return nil, err
+	}
+
+	return c, nil
 }
-
-func (h *Handler) ItemGroupCronjob() {
-	if err := pkg.LoginSAP(); err != nil {
-		h.Log.Err(err).Msg("Error on login SAP ItemGroupCronjob")
-		// log.Fatal("error while login SAP", err)
-	}
-
-	if err := h.CreateItemGroup(); err != nil {
-		h.Log.Err(err).Msg("Error on creating item group cronjob")
-	}
-}
-
-func (h *Handler) ProductsCronJob() {
-	if err := pkg.LoginSAP(); err != nil {
-		h.Log.Err(err).Msg("Error on login SAP ProductsCronJob")
-	}
-
-	if err := h.CreateProduct(); err != nil {
-		h.Log.Err(err).Msg("Error on creating item group cronjob")
-	}
-}
-
-func (h *Handler) ProductAndServiceCronJob() {
-	if err := pkg.LoginSAP(); err != nil {
-		h.Log.Err(err).Msg("Error on login SAP ProductAndServiceCronJob")
-	}
-
-	if err := h.CreateProductAndServices(); err != nil {
-		h.Log.Err(err).Msg("Error on login SAP ProductAndServiceCronJob")
-	}
-}
-
-// func (h *Handler) ExchangeRate() {
-
-// 	if err := pkg.LoginSAP(); err != nil {
-// 		log.Fatal("error while login SAP", err)
-// 	}
-// 	if err := h.CreateExchangeRate(); err != nil {
-// 		log.Fatal("error while creating exchange rate ", err)
-// 	}
-// }

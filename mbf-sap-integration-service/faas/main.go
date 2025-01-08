@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 
-	"encoding/json"
 	"flag"
 	"fmt"
 	"function/pkg"
@@ -16,7 +15,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/robfig/cron/v3"
 
 	function "function/internal"
 )
@@ -48,15 +46,14 @@ func main() {
 // the user-defined function.Handler on receipt of an event.
 func run() error {
 	go sendRequestEvery5Seconds()
-	// select {}
-	// cronjob
+
 	var (
 		cfg, _  = pkg.NewConfig()
 		params  = pkg.NewParams(cfg)
 		handler = function.InitHandler(params)
 	)
 
-	cron, err := regCronjobs(handler)
+	cron, err := handler.RegCronjobs()
 	if err != nil {
 		handler.Log.Err(err).Msg("Error on cronjob")
 	}
@@ -70,7 +67,6 @@ func run() error {
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigs
-		fmt.Println("CANCEL CAME HERE", <-sigs)
 		cancel()
 	}()
 
@@ -82,7 +78,8 @@ func run() error {
 	// Add handlers for readiness and liveness endpoints
 	r.HandleFunc("/health/{endpoint:readiness|liveness}", func(w http.ResponseWriter, r *http.Request) {
 		handler.Log.Info().Msg("health api")
-		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
+		w.WriteHeader(http.StatusOK)
+		// json.NewEncoder(w).Encode(map[string]bool{"ok": true})
 	})
 
 	r.Route("/api/v1", func(r chi.Router) {
@@ -93,6 +90,8 @@ func run() error {
 		r.Post("/movement", handler.MovementRequest)
 		// r.Post("/movement/send")
 		// r.Post("/movement/")
+
+		r.Get("/scanner", handler.Scanner)
 
 		r.Get("/test", handler.JustTest)
 		r.Post("/conversion", nil) // konvertatsiya
@@ -157,60 +156,6 @@ func parseEnv() {
 	parseInt("PORT", port)
 }
 
-// register all cronjobs here...
-func regCronjobs(h *function.Handler) (*cron.Cron, error) {
-	var c = cron.New()
-
-	// Scheduled the task to run at every 5 minutes
-	_, err := c.AddFunc("*/5 * * * *", func() {
-		fmt.Println("Cronjob exchange task running at", time.Now())
-		h.ExchangeRate()
-
-	})
-	if err != nil {
-		fmt.Println("Error scheduling task:", err)
-	}
-
-	// Scheduled the task to run at 9:00 AM every day
-	_, err = c.AddFunc("0 9 * * *", func() {
-		fmt.Println("Cronjob ItemGroupCronjob task running at", time.Now())
-		h.ItemGroupCronjob()
-	})
-	if err != nil {
-		fmt.Println("Error scheduling task:", err)
-	}
-
-	// Scheduled the task to run every hour minutes 0
-	_, err = c.AddFunc("0 * * * *", func() {
-		fmt.Println("Cronjob ProductAndServiceCronJob task running at", time.Now())
-		h.ProductAndServiceCronJob()
-	})
-	if err != nil {
-		fmt.Println("Error scheduling task:", err)
-	}
-
-	// Scheduled the task to run every hour minutes 5
-	_, err = c.AddFunc("5 * * * *", func() {
-		fmt.Println("Cronejob stock running at", time.Now())
-		h.StockCronJob()
-	})
-	if err != nil {
-		fmt.Println("Error scheduling task:", err)
-	}
-
-	// Scheduled the task to run at 5:00 AM every day
-	_, err = c.AddFunc("0 5 * * *", func() {
-		fmt.Println("Cronjob create or update whs task running at", time.Now())
-		h.CreateOrUpdateWarehouse()
-	})
-	if err != nil {
-		fmt.Println("Error scheduling task:", err)
-	}
-
-	return c, nil
-
-}
-
 func sendRequestEvery5Seconds() {
 	url := pkg.KnativeURL + "health/liveness"
 
@@ -220,7 +165,7 @@ func sendRequestEvery5Seconds() {
 			fmt.Println("Error sending request:", err)
 			continue
 		}
-		fmt.Println("Response Status:", resp.Status)
+
 		resp.Body.Close()
 
 		time.Sleep(5 * time.Second)

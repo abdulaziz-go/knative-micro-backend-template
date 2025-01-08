@@ -14,7 +14,12 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-func (h *Handler) CreateProduct() error {
+func (h *Handler) ProductsCronJob() error {
+	if err := pkg.LoginSAP(); err != nil {
+		h.Log.Err(err).Msg("Error on login SAP ProductsCronJob")
+		return err
+	}
+
 	products, err := getProduct()
 	if err != nil {
 		return fmt.Errorf("failed to get products: %w", err)
