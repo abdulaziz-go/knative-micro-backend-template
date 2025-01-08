@@ -41,8 +41,8 @@ func (h *Handler) ProductAndServiceCronJob() error {
 		var (
 			itemGroupGuid = itemGroupId[pkg.GetIntValue(productAndService, "ItemsGroupCode")]
 			U_direction   = pkg.GetStringValue(productAndService, "U_direction")
-			directionGuid = pkg.Directions[U_direction]
 			code          = pkg.GetStringValue(productAndService, "ItemCode")
+			directionGuid = pkg.Directions[U_direction]
 			name          = productAndService["ItemName"]
 			filter        = bson.M{"code": code}
 			update        = bson.M{
