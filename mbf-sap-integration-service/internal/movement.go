@@ -77,7 +77,7 @@ func (h *Handler) MovementRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pkg.HandleResponse(w, map[string]interface{}{"message": "OK", "code": http.StatusOK}, http.StatusCreated)
+	pkg.HandleResponse(w, map[string]interface{}{"message": "OK", "code": http.StatusOK}, http.StatusOK)
 }
 
 func (h *Handler) updateMovementStatus(movementID string, status string) error {

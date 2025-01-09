@@ -166,6 +166,10 @@ func getProductAndServices() ([]map[string]interface{}, error) {
 }
 
 func fileUpload(filePath, code string) (string, error) {
+	// qrPath, err := qrGenerate(code)
+	// if err != nil {
+	// 	return "", err
+	// }
 
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -212,8 +216,7 @@ func fileUpload(filePath, code string) (string, error) {
 		}
 		fmt.Println("File uploaded successfully: ", string(byte))
 
-
-		return "",nil
+		return "", nil
 	} else {
 		fmt.Printf("Failed to upload file: %v\n", resp.Status)
 		return "", fmt.Errorf("error while uploading file: %v", resp.Status)
