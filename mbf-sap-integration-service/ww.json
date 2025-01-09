@@ -1,17 +1,17 @@
 {
-    "DocDate": "2025-1-7",
-    "DueDate": "2025-1-7",
-    "FromWarehouse": 92,
+    "DocDate": "2025-1-9",
+    "DueDate": "2025-1-9",
+    "FromWarehouse": 35,
     "StockTransferLines": [
         {
-            "FromWarehouseCode": 92,
-            "ItemCode": 9248,
+            "FromWarehouseCode": 35,
+            "ItemCode": 9528,
             "LineNum": 0,
             "Quantity": 1,
-            "WarehouseCode": 94
+            "WarehouseCode": 101
         }
     ],
-    "ToWarehouse": 94,
-    "U_dep": "Жиззах",
+    "ToWarehouse": 101,
+    "U_dep": "Промзона",
     "U_direction": "ВЕЛО"
 }

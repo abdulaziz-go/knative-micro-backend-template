@@ -77,7 +77,7 @@ func (h *Handler) MovementRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pkg.HandleResponse(w, nil, http.StatusCreated)
+	pkg.HandleResponse(w, map[string]interface{}{"message": "OK", "code": http.StatusOK}, http.StatusCreated)
 }
 
 func (h *Handler) updateMovementStatus(movementID string, status string) error {
@@ -150,20 +150,23 @@ func transferInventorySAP(movement pkg.MovementRequest) (int, int, error) {
 	if err != nil {
 		return 0, 0, fmt.Errorf("failed to read SAP response: %w", err)
 	}
-	var data = map[string]interface{}{}
-	fmt.Printf("SAP Response: %s\n", string(body))
 
-	docEntry, ok := data["DocEntry"].(int)
+	var data = map[string]interface{}{}
+	if err := json.Unmarshal(body, &data); err != nil {
+		return 0, 0, fmt.Errorf("failed to unmarshal SAP response: %w", err)
+	}
+
+	docEntry, ok := data["DocEntry"].(float64)
 	if !ok {
 		return 0, 0, fmt.Errorf("failed to get DocEntry from SAP response")
 	}
 
-	docNum, ok := data["DocNum"].(int)
+	docNum, ok := data["DocNum"].(float64)
 	if !ok {
 		return 0, 0, fmt.Errorf("failed to get DocNum from SAP response")
 	}
 
-	return docEntry, docNum, nil
+	return int(docEntry), int(docNum), nil
 }
 
 // createSAPRequestBody generates the JSON body for the SAP request
