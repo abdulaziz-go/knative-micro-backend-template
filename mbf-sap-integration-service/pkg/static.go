@@ -10,6 +10,7 @@ var (
 	Client               = &http.Client{Transport: &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}}
 	MongoURL             = "mongodb://mbf_ebf657726f964d5fb08c65c915f85e2c_p_obj_build_svcs:kMiMD5V4VU@142.93.164.37:27017/mbf_ebf657726f964d5fb08c65c915f85e2c_p_obj_build_svcs"
 	SingleURL            = "https://api.admin.u-code.io/v2/items/"
+	FileUploadURL        = "https://api.admin.u-code.io/v1/files/folder_upload?folder_name=Media"
 	GetListURL           = "https://api.admin.u-code.io/v2/object-slim/get-list/"
 	MultipleUpdateUrl    = "https://api.admin.u-code.io/v1/object/multiple-update/"
 	KnativeURL           = "http://mbf-sap-integration-service.knative-fn.u-code.io/"

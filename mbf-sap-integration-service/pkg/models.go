@@ -219,9 +219,9 @@ type MovementRequest struct {
 	EmployeeID        string          `json:"employee_id"`
 	ClientID          string          `json:"client_id"`
 	FromWarehouseID   string          `json:"from_warehouse_id"`
-	FromWarehouseCode int             `json:"from_warehouse_code"`
+	FromWarehouseCode string          `json:"from_warehouse_code"`
 	ToWarehouseID     string          `json:"to_warehouse_id"`
-	ToWarehouseCode   int             `json:"to_warehouse_code"`
+	ToWarehouseCode   string          `json:"to_warehouse_code"`
 	CreatedDate       string          `json:"created_date"`
 	MovementType      string          `json:"movement_type"`
 	BaseEntry         int             `json:"base_entry"`
@@ -232,7 +232,7 @@ type MovementItems struct {
 	StockID           string `json:"stock_id"`
 	Quantity          int    `json:"quantity"`
 	FromWarehouseID   string `json:"from_warehouse_id"`
-	FromWarehouseCode int    `json:"from_warehouse_code"`
+	FromWarehouseCode string `json:"from_warehouse_code"`
 	ToWarehouseID     string `json:"to_warehouse_id"`
-	ToWarehouseCode   int    `json:"to_warehouse_code"`
+	ToWarehouseCode   string `json:"to_warehouse_code"`
 }

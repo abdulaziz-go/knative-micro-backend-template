@@ -1,17 +1,22 @@
 package internal
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"function/pkg"
-	"io"
-	"net/http"
-	"time"
 
 	"github.com/google/uuid"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"io"
+	"log"
+	"mime/multipart"
+	"net/http"
+	"os"
+	"path/filepath"
+	"time"
 )
 
 var itemGroupId = map[int]string{}
@@ -52,6 +57,7 @@ func (h *Handler) ProductAndServiceCronJob() error {
 					"item_group_id":  itemGroupGuid,
 					"code":           code,
 					"name":           name,
+					"barcode":        "",
 				},
 				"$setOnInsert": bson.M{
 					"createdAt": time.Now(),
@@ -157,4 +163,64 @@ func getProductAndServices() ([]map[string]interface{}, error) {
 	}
 
 	return productAndServices, nil
+}
+
+func fileUpload(filePath, code string) (string, error) {
+
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	var requestBody bytes.Buffer
+
+	multipartWriter := multipart.NewWriter(&requestBody)
+
+	filePart, err := multipartWriter.CreateFormFile("file", filepath.Base(filePath))
+	if err != nil {
+		return "", err
+	}
+
+	_, err = io.Copy(filePart, file)
+	if err != nil {
+		return "", err
+	}
+
+	multipartWriter.Close()
+
+	req, err := http.NewRequest(http.MethodPost, pkg.FileUploadURL, &requestBody)
+	if err != nil {
+		log.Fatalf("failed to create request: %v", err)
+		return "", err
+	}
+
+	req.Header.Set("Content-Type", multipartWriter.FormDataContentType())
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalf("failed to send request: %v", err)
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == http.StatusOK {
+		byte, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return "", err
+		}
+		fmt.Println("File uploaded successfully: ", string(byte))
+
+
+		return "",nil
+	} else {
+		fmt.Printf("Failed to upload file: %v\n", resp.Status)
+		return "", fmt.Errorf("error while uploading file: %v", resp.Status)
+	}
+}
+
+func qrGenerate(code string) (string, error) {
+
+	return "", nil
 }
