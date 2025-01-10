@@ -6,12 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"function/pkg"
+	"image/png"
 
 	"github.com/google/uuid"
+	"github.com/skip2/go-qrcode"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"io"
-	"log"
 	"mime/multipart"
 	"net/http"
 	"os"
@@ -30,6 +31,7 @@ func (h *Handler) ProductAndServiceCronJob() error {
 
 	if err := h.itemGroup(); err != nil {
 		return fmt.Errorf("failed to get item group: %w", err)
+
 	}
 
 	productAndServices, err := getProductAndServices()
@@ -38,50 +40,79 @@ func (h *Handler) ProductAndServiceCronJob() error {
 	}
 
 	var (
-		collection = h.MongoDB.Collection("product_and_services")
-		operations = []mongo.WriteModel{}
+		collection    = h.MongoDB.Collection("product_and_services")
+		operations    = []mongo.WriteModel{}
+		erroredRows   = []map[string]interface{}{}
+		erroredIssues = []string{}
 	)
 
 	for index, productAndService := range productAndServices {
-		var (
-			itemGroupGuid = itemGroupId[pkg.GetIntValue(productAndService, "ItemsGroupCode")]
-			U_direction   = pkg.GetStringValue(productAndService, "U_direction")
-			code          = pkg.GetStringValue(productAndService, "ItemCode")
-			directionGuid = pkg.Directions[U_direction]
-			name          = productAndService["ItemName"]
-			filter        = bson.M{"code": code}
-			update        = bson.M{
-				"$set": bson.M{
-					"direction_id":   directionGuid,
-					"direction_name": U_direction,
-					"item_group_id":  itemGroupGuid,
-					"code":           code,
-					"name":           name,
-					"barcode":        "",
-				},
-				"$setOnInsert": bson.M{
-					"createdAt": time.Now(),
-					"guid":      uuid.New().String(),
-				},
-			}
-			operation = mongo.NewUpdateOneModel().
-					SetFilter(filter).
-					SetUpdate(update).
-					SetUpsert(true)
-		)
+		code := pkg.GetStringValue(productAndService, "ItemCode")
+		existingDoc := collection.FindOne(context.Background(), bson.M{"code": code, "barcode": bson.M{"$ne": ""}})
+		if existingDoc.Err() == nil {
+			continue
+		}
+
+		qrPath := fmt.Sprintf("qrcodes/%s.png", code)
+		err := qrGenerate(code, qrPath)
+		if err != nil {
+			erroredRows = append(erroredRows, productAndService)
+			erroredIssues = append(erroredIssues, fmt.Sprintf("failed to generate QR code for code %s: %v", code, err))
+			continue
+		}
+
+		qrURL, err := fileUpload(qrPath)
+		if err != nil {
+			erroredRows = append(erroredRows, productAndService)
+			erroredIssues = append(erroredIssues, fmt.Sprintf("failed to upload QR code for code %s: %v", code, err))
+			continue
+		}
+
+		itemGroupGuid := itemGroupId[pkg.GetIntValue(productAndService, "ItemsGroupCode")]
+		U_direction := pkg.GetStringValue(productAndService, "U_direction")
+		directionGuid := pkg.Directions[U_direction]
+		name := productAndService["ItemName"]
+
+		filter := bson.M{"code": code}
+		update := bson.M{
+			"$set": bson.M{
+				"direction_id":   directionGuid,
+				"direction_name": U_direction,
+				"item_group_id":  itemGroupGuid,
+				"code":           code,
+				"name":           name,
+				"barcode":        fmt.Sprintf("https://cdn.u-code.io/%v", qrURL),
+			},
+			"$setOnInsert": bson.M{
+				"createdAt": time.Now(),
+				"guid":      uuid.New().String(),
+			},
+		}
+		operation := mongo.NewUpdateOneModel().
+			SetFilter(filter).
+			SetUpdate(update).
+			SetUpsert(true)
 
 		operations = append(operations, operation)
 		fmt.Println("Index: ", index)
 	}
 
-	// Execute bulk write
+	// Execute bulk write operation to update the documents in the collection.
 	_, err = collection.BulkWrite(context.Background(), operations)
 	if err != nil {
 		return fmt.Errorf("error during bulk write: %w", err)
 	}
 
-	fmt.Println("Successfully updated and inserted product and services.")
+	// Log and handle any errors that occurred during processing.
+	if len(erroredRows) > 0 {
+		h.Log.Warn().
+			Interface("erroredRows", erroredRows).
+			Strs("issues", erroredIssues).
+			Msg("Errors occurred during product and service processing")
+		return fmt.Errorf("errors occurred during processing: %v", erroredIssues)
+	}
 
+	fmt.Println("Successfully updated and inserted product and services.")
 	return nil
 }
 
@@ -164,66 +195,104 @@ func getProductAndServices() ([]map[string]interface{}, error) {
 
 	return productAndServices, nil
 }
-
-func fileUpload(filePath, code string) (string, error) {
-	// qrPath, err := qrGenerate(code)
-	// if err != nil {
-	// 	return "", err
-	// }
+func fileUpload(filePath string) (string, error) {
+	// Check if the file exists
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		return "", fmt.Errorf("file does not exist at path: %s", filePath)
+	}
 
 	file, err := os.Open(filePath)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to open file: %w", err)
 	}
 	defer file.Close()
 
 	var requestBody bytes.Buffer
-
 	multipartWriter := multipart.NewWriter(&requestBody)
 
+	// Create a form file for the upload
 	filePart, err := multipartWriter.CreateFormFile("file", filepath.Base(filePath))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to create form file: %w", err)
 	}
 
-	_, err = io.Copy(filePart, file)
-	if err != nil {
-		return "", err
+	// Copy the file content to the multipart writer
+	if _, err := io.Copy(filePart, file); err != nil {
+		return "", fmt.Errorf("failed to copy file content: %w", err)
 	}
 
-	multipartWriter.Close()
+	// Close the multipart writer to finalize the form data
+	if err := multipartWriter.Close(); err != nil {
+		return "", fmt.Errorf("failed to close multipart writer: %w", err)
+	}
 
+	// Create the HTTP request
 	req, err := http.NewRequest(http.MethodPost, pkg.FileUploadURL, &requestBody)
 	if err != nil {
-		log.Fatalf("failed to create request: %v", err)
-		return "", err
+		return "", fmt.Errorf("failed to create HTTP request: %w", err)
 	}
-
 	req.Header.Set("Content-Type", multipartWriter.FormDataContentType())
-
+	req.Header.Add("authorization", "API-KEY")
+	req.Header.Add("X-API-KEY", pkg.AppId)
+	// Send the HTTP request
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatalf("failed to send request: %v", err)
-		return "", err
+		return "", fmt.Errorf("failed to send HTTP request: %w", err)
 	}
+
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusOK {
-		byte, err := io.ReadAll(resp.Body)
+	if resp.StatusCode == 201 {
+		respByte, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return "", err
 		}
-		fmt.Println("File uploaded successfully: ", string(byte))
-
-		return "", nil
+		url := extractFilePath(respByte)
+		return url, nil
 	} else {
-		fmt.Printf("Failed to upload file: %v\n", resp.Status)
-		return "", fmt.Errorf("error while uploading file: %v", resp.Status)
+		return "", fmt.Errorf("failed to upload file: status code %d, response: %s", resp.StatusCode, resp.Status)
 	}
 }
 
-func qrGenerate(code string) (string, error) {
+func extractFilePath(respByte []byte) string {
+	var result map[string]interface{}
+	err := json.Unmarshal(respByte, &result)
+	if err != nil {
+		fmt.Println("Error unmarshalling JSON:", err)
+		return ""
+	}
+	data, ok := result["data"].(map[string]interface{})
+	if !ok {
+		fmt.Println("Error: 'data' field not found or invalid")
+		return ""
+	}
 
-	return "", nil
+	link, ok := data["link"].(string)
+	if !ok {
+		fmt.Println("Error: 'link' field not found or invalid")
+		return ""
+	}
+
+	return link
+}
+
+func qrGenerate(code string, filePath string) error {
+	qr, err := qrcode.New(code, qrcode.Medium)
+	if err != nil {
+		return err
+	}
+
+	file, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	err = png.Encode(file, qr.Image(256))
+	if err != nil {
+		return err
+	}
+
+	return nil
 }

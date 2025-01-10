@@ -143,7 +143,6 @@ func (h *Handler) NewHandler() http.HandlerFunc {
 // register all cronjobs here...
 func (h *Handler) RegCronjobs() (*cron.Cron, error) {
 	var c = cron.New()
-
 	// Scheduled the task to run at every 5 minutes
 	_, err := c.AddFunc("*/5 * * * *", func() {
 		fmt.Println("Cronjob exchange task running at", time.Now().Format(time.RFC3339))
