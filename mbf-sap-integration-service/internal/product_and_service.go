@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"function/pkg"
 	"image/png"
+	"sync"
 
 	"io"
 	"mime/multipart"
@@ -51,87 +52,117 @@ var itemGroupId = map[int]string{}
 
 // code
 func (h *Handler) ProductAndServiceCronJob() error {
+	startTime := time.Now()
+	fmt.Println("LoginSAP started: ", startTime)
 	if err := pkg.LoginSAP(); err != nil {
 		h.Log.Err(err).Msg("Error on login SAP ProductAndServiceCronJob")
 		return err
 	}
-
+	fmt.Printf("LoginSAP finished: %v\n", time.Since(startTime))
+	startTime = time.Now()
+	fmt.Println("ItemGroup started: ", startTime)
 	if err := h.itemGroup(); err != nil {
 		return fmt.Errorf("failed to get item group: %w", err)
-
 	}
-
-	start := time.Now()
+	fmt.Printf("ItemGroup finished: %v\n", time.Since(startTime))
+	startTime = time.Now()
+	fmt.Println("getProductAndServices started: ", startTime)
 	productAndServices, err := getProductAndServices()
 	if err != nil {
 		return fmt.Errorf("failed to get product and services: %w", err)
 	}
-	fmt.Println("getProductAndServices run time:", time.Since(start))
-	
+	fmt.Println("getProductAndServices finished: ", time.Since(startTime))
 	var (
 		collection    = h.MongoDB.Collection("product_and_services")
-		operations    = []mongo.WriteModel{}
-		erroredRows   = []map[string]interface{}{}
-		erroredIssues = []string{}
+		operations    []mongo.WriteModel
+		erroredRows   []map[string]interface{}
+		erroredIssues []string
 	)
 
-	for index, productAndService := range productAndServices { // goroutine qilish kerak
-		code := pkg.GetStringValue(productAndService, "ItemCode")
-		existingDoc := collection.FindOne(context.Background(), bson.M{"code": code, "barcode": bson.M{"$ne": ""}})
-		if existingDoc.Err() == nil {
-			continue
-		}
+	var mu sync.Mutex
+	var wg sync.WaitGroup
 
-		qrPath := fmt.Sprintf("qrcodes/%s.png", code)
-		err := qrGenerate(code, qrPath)
-		if err != nil {
-			erroredRows = append(erroredRows, productAndService)
-			erroredIssues = append(erroredIssues, fmt.Sprintf("failed to generate QR code for code %s: %v", code, err))
-			continue
-		}
+	const numGoroutines = 8
+	batchSize := len(productAndServices) / numGoroutines
+	if batchSize == 0 || len(productAndServices)%numGoroutines != 0 {
+		batchSize++
+	}
+	startTime = time.Now()
+	fmt.Println("Goroutine started: ", startTime)
+	for i := 0; i < numGoroutines; i++ {
+		wg.Add(1)
+		go func(startIndex int) {
+			defer wg.Done()
+			endIndex := startIndex + batchSize
+			if endIndex > len(productAndServices) {
+				endIndex = len(productAndServices)
+			}
 
-		qrURL, err := fileUpload(qrPath)
-		if err != nil {
-			erroredRows = append(erroredRows, productAndService)
-			erroredIssues = append(erroredIssues, fmt.Sprintf("failed to upload QR code for code %s: %v", code, err))
-			continue
-		}
+			for index := startIndex; index < endIndex; index++ {
+				productAndService := productAndServices[index]
+				code := pkg.GetStringValue(productAndService, "ItemCode")
 
-		itemGroupGuid := itemGroupId[pkg.GetIntValue(productAndService, "ItemsGroupCode")]
-		U_direction := pkg.GetStringValue(productAndService, "U_direction")
-		directionGuid := pkg.Directions[U_direction]
-		name := productAndService["ItemName"]
+				// Check if the product is already in the database with a barcode
+				var existingDoc map[string]interface{}
+				filter := bson.M{"code": code, "barcode": bson.M{"$ne": ""}}
+				err := collection.FindOne(context.Background(), filter).Decode(&existingDoc)
+				if err == nil {
+					fmt.Println("Skipping item with existing barcode:", code)
+					continue
+				}
 
-		filter := bson.M{"code": code}
-		update := bson.M{
-			"$set": bson.M{
-				"direction_id":   directionGuid,
-				"direction_name": U_direction,
-				"item_group_id":  itemGroupGuid,
-				"code":           code,
-				"name":           name,
-				"barcode":        fmt.Sprintf("https://cdn.u-code.io/%s", qrURL),
-				// "barcode":        qr(code),
-			},
-			"$setOnInsert": bson.M{
-				"createdAt": time.Now(),
-				"guid":      uuid.New().String(),
-			},
-		}
-		operation := mongo.NewUpdateOneModel().
-			SetFilter(filter).
-			SetUpdate(update).
-			SetUpsert(true)
+				qrURL, err := qr(code)
+				if err != nil {
+					mu.Lock()
+					erroredRows = append(erroredRows, productAndService)
+					erroredIssues = append(erroredIssues, fmt.Sprintf("failed to generate QR code for code %s: %s", code, err.Error()))
+					mu.Unlock()
+					continue
+				}
 
-		operations = append(operations, operation)
-		fmt.Println("Index: ", index)
+				itemGroupGuid := itemGroupId[pkg.GetIntValue(productAndService, "ItemsGroupCode")]
+				U_direction := pkg.GetStringValue(productAndService, "U_direction")
+				directionGuid := pkg.Directions[U_direction]
+				name := productAndService["ItemName"]
+
+				filter = bson.M{"code": code}
+				update := bson.M{
+					"$set": bson.M{
+						"direction_id":   directionGuid,
+						"direction_name": U_direction,
+						"item_group_id":  itemGroupGuid,
+						"code":           code,
+						"name":           name,
+						"barcode":        qrURL,
+					},
+					"$setOnInsert": bson.M{
+						"createdAt": time.Now(),
+						"guid":      uuid.New().String(),
+					},
+				}
+				operation := mongo.NewUpdateOneModel().
+					SetFilter(filter).
+					SetUpdate(update).
+					SetUpsert(true)
+
+				mu.Lock()
+				operations = append(operations, operation)
+				mu.Unlock()
+				fmt.Println("Index: ", index)
+			}
+		}(i * batchSize)
 	}
 
+	wg.Wait()
+	fmt.Println("Goroutine finished: ", time.Since(startTime))
+	startTime = time.Now()
+	fmt.Println("Update started: ", startTime)
 	// Execute bulk write operation to update the documents in the collection.
 	_, err = collection.BulkWrite(context.Background(), operations)
 	if err != nil {
 		return fmt.Errorf("error during bulk write: %w", err)
 	}
+	fmt.Println("Update finished: ", time.Since(startTime))
 
 	// Log and handle any errors that occurred during processing.
 	if len(erroredRows) > 0 {
@@ -316,9 +347,18 @@ func extractFilePath(respByte []byte) (string, error) {
 	return link, nil
 }
 
-func qr() string {
+func qr(code string) (string, error) {
+	qrPath := fmt.Sprintf("qrcodes/%s.png", code)
+	err := qrGenerate(code, qrPath)
+	if err != nil {
+		return "", err
+	}
 
-	return ""
+	qrURL, err := fileUpload(qrPath)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("https://cdn.u-code.io/%s", qrURL), nil
 }
 func qrGenerate(code string, filePath string) error {
 	qr, err := qrcode.New(code, qrcode.Medium)
