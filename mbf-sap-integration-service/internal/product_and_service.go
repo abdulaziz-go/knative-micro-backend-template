@@ -8,19 +8,46 @@ import (
 	"function/pkg"
 	"image/png"
 
-	"github.com/google/uuid"
-	"github.com/skip2/go-qrcode"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/skip2/go-qrcode"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 var itemGroupId = map[int]string{}
+
+// 1. LoginSAP
+// 2. ItemGroup
+// 3. getProductAndServices
+// 4. qr generate qilish kerak yangi product uchun
+
+/*
+1. for ni goroutine ga tiqib chiqish 8 ta goroutine
+	n:=len(productAndServices)
+	n:=201
+  1-go 1-datani, productAndServices[0]
+  2-go 2-datani, productAndServices[1]
+  3-go 2-datani, productAndServices[2]
+  4-go 2-datani, productAndServices[3]
+  5-go 2-datani, productAndServices[4]
+  6-go 2-datani, productAndServices[5]
+  7-go 2-datani, productAndServices[6]
+  8-go 2-datani, productAndServices[7]
+
+
+
+2.
+
+*/
+
+// END: inputga qarab product_and_services update yoki create + qrcode lin berib ketishiz kerak
 
 // code
 func (h *Handler) ProductAndServiceCronJob() error {
@@ -34,11 +61,13 @@ func (h *Handler) ProductAndServiceCronJob() error {
 
 	}
 
+	start := time.Now()
 	productAndServices, err := getProductAndServices()
 	if err != nil {
 		return fmt.Errorf("failed to get product and services: %w", err)
 	}
-
+	fmt.Println("getProductAndServices run time:", time.Since(start))
+	
 	var (
 		collection    = h.MongoDB.Collection("product_and_services")
 		operations    = []mongo.WriteModel{}
@@ -46,7 +75,7 @@ func (h *Handler) ProductAndServiceCronJob() error {
 		erroredIssues = []string{}
 	)
 
-	for index, productAndService := range productAndServices {
+	for index, productAndService := range productAndServices { // goroutine qilish kerak
 		code := pkg.GetStringValue(productAndService, "ItemCode")
 		existingDoc := collection.FindOne(context.Background(), bson.M{"code": code, "barcode": bson.M{"$ne": ""}})
 		if existingDoc.Err() == nil {
@@ -81,7 +110,8 @@ func (h *Handler) ProductAndServiceCronJob() error {
 				"item_group_id":  itemGroupGuid,
 				"code":           code,
 				"name":           name,
-				"barcode":        fmt.Sprintf("https://cdn.u-code.io/%v", qrURL),
+				"barcode":        fmt.Sprintf("https://cdn.u-code.io/%s", qrURL),
+				// "barcode":        qr(code),
 			},
 			"$setOnInsert": bson.M{
 				"createdAt": time.Now(),
@@ -195,6 +225,7 @@ func getProductAndServices() ([]map[string]interface{}, error) {
 
 	return productAndServices, nil
 }
+
 func fileUpload(filePath string) (string, error) {
 	// Check if the file exists
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
@@ -234,13 +265,13 @@ func fileUpload(filePath string) (string, error) {
 	req.Header.Set("Content-Type", multipartWriter.FormDataContentType())
 	req.Header.Add("authorization", "API-KEY")
 	req.Header.Add("X-API-KEY", pkg.AppId)
+
 	// Send the HTTP request
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to send HTTP request: %w", err)
 	}
-
 	defer resp.Body.Close()
 
 	if resp.StatusCode == 201 {
@@ -248,35 +279,47 @@ func fileUpload(filePath string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		url := extractFilePath(respByte)
+
+		// url cdn ni linki bo'lishi kerak
+		// local image delete
+		url, err := extractFilePath(respByte)
+		if err != nil {
+			return "", err
+		}
+
 		return url, nil
 	} else {
 		return "", fmt.Errorf("failed to upload file: status code %d, response: %s", resp.StatusCode, resp.Status)
 	}
 }
 
-func extractFilePath(respByte []byte) string {
+func extractFilePath(respByte []byte) (string, error) {
 	var result map[string]interface{}
 	err := json.Unmarshal(respByte, &result)
 	if err != nil {
 		fmt.Println("Error unmarshalling JSON:", err)
-		return ""
+		return "", err
 	}
+
 	data, ok := result["data"].(map[string]interface{})
 	if !ok {
 		fmt.Println("Error: 'data' field not found or invalid")
-		return ""
+		return "", err
 	}
 
-	link, ok := data["link"].(string)
-	if !ok {
-		fmt.Println("Error: 'link' field not found or invalid")
-		return ""
+	link := pkg.GetStringValue(data, "link")
+	if link == "" {
+		fmt.Println("")
+		return "", fmt.Errorf("error: 'link' field not found or invalid: %w ", err)
 	}
 
-	return link
+	return link, nil
 }
 
+func qr() string {
+
+	return ""
+}
 func qrGenerate(code string, filePath string) error {
 	qr, err := qrcode.New(code, qrcode.Medium)
 	if err != nil {
