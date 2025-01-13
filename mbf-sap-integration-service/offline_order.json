@@ -1,0 +1,32 @@
+{
+    "order_id": "sale ni guid si ",
+    "client_id": "74465d7e-ee61-4a44-bd8f-071ba179a78e",
+    "employee_id": "f1b1b1b1-1b1b-1b1b-1b1b-1b1b1b1b1b1b",
+    "CardCode": "К02202",
+    "DocDueDate": "2024-11-25",
+    "payment_type": "cash/installment",
+    "DocDate": "2024-11-25",
+    "currency": "USD",
+    "direction_name": "МЕТАН",
+    "direction_id": "d0392d28-b22c-4d3a-a0a0-bc0d40979917",
+    "subdivision_id": "7ad203a4-1d2a-4cc3-99b0-ec627966b769",
+    "subdivision_name": "{U_dep}",
+    "total_quantity": 10,
+    "delivery_address": "ulica Kazimierzowska, 77, Warszawa, Masovian Voivodeship",
+    "order_items": [
+        {
+            "stock_id": "d0392d28-b22c-4d3a-a0a0-bc0d40979917",
+            "product_and_service_id": "0f8e3319-8809-4066-8c65-13511883ff41",
+            "ItemCode": "9842",
+            "Quantity": 10,
+            "UnitPrice": 64.4623
+        },
+        {
+            "stock_id": "d0392d28-b22c-4d3a-a0a0-bc0d40979917",
+            "product_and_service_id": "0f8e3319-8809-4066-8c65-13511883ff41",
+            "ItemCode": "9842",
+            "Quantity": 10,
+            "UnitPrice": 64.4623
+        }
+    ]
+}
