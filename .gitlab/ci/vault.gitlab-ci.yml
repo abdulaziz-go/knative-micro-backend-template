@@ -9,8 +9,16 @@
   script:
     - cd $CI_PROJECT_NAME
     - export VAULT_TOKEN="$(vault write -field=token $VAULT_AUTH_PATH role=$VAULT_AUTH_ROLE jwt=$VAULT_ID_TOKEN)"
-    - SECRET=$(vault kv get -format=json $SECRET_PATH)
-    - echo "$SECRET" | jq -r '.data.data | to_entries | .[] | "\(.key)=\(.value)"' > .env
+    - IFS=',' read -r -a paths_array <<< "$SECRET_PATHS" 
+    - echo "# Auto-generated .env file with Vault secrets" > .env
+    - |
+      for path in "${paths_array[@]}"; do
+        output=$(vault kv get -format=json "$path")
+        data=$(echo "$output" | jq -r '.data.data | to_entries[] | "\(.key)=\(.value)"')
+        while IFS= read -r line; do
+          echo "$line" >> .env  # Append each key=value to .env file
+        done <<< "$data"
+      done
   artifacts:
     paths:
       - $CI_PROJECT_NAME/.env
