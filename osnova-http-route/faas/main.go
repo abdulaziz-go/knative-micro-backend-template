@@ -52,7 +52,7 @@ func run() error {
 	// Use a gorilla mux for handling all HTTP requests
 	router := chi.NewRouter()
 
-	router.Get("/hello", func(w http.ResponseWriter, r *http.Request) {
+	router.Post("/hello", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Hello, World!"))
 	})
 
