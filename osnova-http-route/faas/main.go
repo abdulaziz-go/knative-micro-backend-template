@@ -53,6 +53,7 @@ func run() error {
 	router := chi.NewRouter()
 
 	router.Post("/hello", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte("Hello, World!"))
 	})
 
