@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"function/config"
@@ -15,8 +14,6 @@ import (
 	"strconv"
 	"syscall"
 	"time"
-
-	"github.com/go-chi/chi/v5"
 )
 
 // Here is Azizbek's implementation of recoverMiddleware:
@@ -25,6 +22,11 @@ var (
 	usage   = "run\n\nRuns a CloudFunction CloudEvent handler."
 	verbose = flag.Bool("V", false, "Verbose logging [$VERBOSE]")
 	port    = flag.Int("port", 8080, "Listen on all interfaces at the given port [$PORT]")
+)
+
+const (
+	serverTimeout  = 1 * time.Minute
+	maxHeaderBytes = 1 << 20
 )
 
 func main() {
@@ -63,6 +65,8 @@ func run() error {
 	})
 
 	params.UcodeApi = ucodeApi
+	router := api.NewRouter(params)
+	srv := setupServer(router)
 
 	httpServer := &http.Server{
 		Addr:           fmt.Sprintf(":%d", *port),
@@ -85,6 +89,11 @@ func run() error {
 	<-ctx.Done()
 	shutdownCtx, shutdownCancelFn := context.WithTimeout(context.Background(), time.Second*5)
 	defer shutdownCancelFn()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		return fmt.Errorf("error during server shutdown: %w", err)
+	}
+
 	err := httpServer.Shutdown(shutdownCtx)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error on server shutdown: %v\n", err)
@@ -113,6 +122,16 @@ func toHttpHandler(handler interface{}, ctx context.Context) http.Handler {
 	}
 
 	return nil
+}
+
+func setupServer(router http.Handler) *http.Server {
+	return &http.Server{
+		Addr:           fmt.Sprintf(":%d", *port),
+		Handler:        router,
+		ReadTimeout:    serverTimeout,
+		WriteTimeout:   serverTimeout,
+		MaxHeaderBytes: maxHeaderBytes,
+	}
 }
 
 // parseEnv parses environment variables, populating the destination flags
