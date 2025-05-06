@@ -1,0 +1,4 @@
+specVersion: 0.36.0
+name: osnova-http-route
+runtime: go
+created: 2025-05-06T13:42:39.883613+05:00
