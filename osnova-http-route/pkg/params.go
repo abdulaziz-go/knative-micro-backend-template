@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"fmt"
+	sdk "github.com/ucode-io/ucode_sdk"
 	"os"
 
 	cache "github.com/golanguzb70/redis-cache"
@@ -12,7 +13,8 @@ type Params struct {
 	CacheClient    cache.RedisCache
 	CacheAvailable bool
 	Log            zerolog.Logger
-	Config         *Config
+	Config         *config.Config
+	UcodeApi       sdk.UcodeApis
 }
 
 func NewParams(cfg *Config) *Params {

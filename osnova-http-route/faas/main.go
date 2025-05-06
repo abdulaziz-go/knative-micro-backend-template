@@ -5,7 +5,10 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"function/config"
+	"function/internal/api"
 	"function/pkg"
+	sdk "github.com/ucode-io/ucode_sdk"
 	"net/http"
 	"os"
 	"os/signal"
@@ -48,22 +51,18 @@ func run() error {
 		<-sigs
 		cancel()
 	}()
-
-	// Use a gorilla mux for handling all HTTP requests
-	router := chi.NewRouter()
-
-	router.Post("/hello", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte("Hello, World!"))
-	})
-
-	// Add handlers for readiness and liveness endpoints
-	router.HandleFunc("/health/{endpoint:readiness|liveness}", func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(map[string]bool{"ok": true})
-	})
-
 	cfg, _ := pkg.NewConfig()
 	params := pkg.NewParams(cfg)
+
+	ucodeApi := sdk.New(&sdk.Config{
+		BaseURL:        config.BaseUrl,
+		FunctionName:   config.FunctionName,
+		RequestTimeout: config.RequestTimeout,
+		ProjectId:      config.ProjectId,
+		AppId:          config.AppId,
+	})
+
+	params.UcodeApi = ucodeApi
 
 	httpServer := &http.Server{
 		Addr:           fmt.Sprintf(":%d", *port),
